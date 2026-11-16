@@ -58,6 +58,22 @@ TEST_CASE("Test query profiler, no query in the profiling output.", "[api]") {
 	REQUIRE(query_not_found_in_output);
 }
 
+TEST_CASE("A metric is not tracked while the query has no metrics", "[api]") {
+	DuckDB db(nullptr);
+	Connection con(db);
+	con.EnableProfiling();
+	con.context->config.profiler_save_location = TestCreatePath("test_query_profiler_untracked.txt");
+	auto &profiler = QueryProfiler::Get(*con.context);
+	REQUIRE(profiler.IsEnabled());
+	REQUIRE_FALSE(profiler.MetricIsTracked("operator.timing"));
+
+	REQUIRE_NO_FAIL(con.Query("SELECT 42"));
+	REQUIRE(profiler.MetricIsTracked("operator.timing"));
+
+	REQUIRE_NO_FAIL(con.Query("SET threads = 1"));
+	REQUIRE_FALSE(profiler.MetricIsTracked("operator.timing"));
+}
+
 TEST_CASE("Disabling profiling resets the active query profiler", "[api]") {
 	DuckDB db(nullptr);
 	Connection con(db);

@@ -298,7 +298,7 @@ void QueryProfiler::SetMetric(std::string_view key, Value new_value) {
 }
 
 bool QueryProfiler::MetricIsTracked(std::string_view key) const {
-	if (!IsEnabled()) {
+	if (!IsEnabled() || !metrics) {
 		return false;
 	}
 	return metrics->MetricIsTracked(key);
