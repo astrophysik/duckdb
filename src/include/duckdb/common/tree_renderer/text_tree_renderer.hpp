@@ -34,8 +34,9 @@ struct TextTreeRendererConfig {
 	bool expand_all = true;
 	//! When set, operator names are rendered raw/upper-case (e.g. HASH_JOIN) instead of title-cased (Hash Join)
 	bool upper_case_operators = true;
-	//! When set, all non-deterministic profiling values (per-operator timing, and the Summary's total time /
-	//! data read / data written) are rendered as zero. Used so EXPLAIN ANALYZE output is byte-stable in tests.
+	//! When set, all non-deterministic profiling values (per-operator timing and timing details, and the Summary's
+	//! total time / data read / data written) are rendered as zero. Used so EXPLAIN ANALYZE output is byte-stable in
+	//! tests.
 	bool deterministic = false;
 
 #ifndef DUCKDB_ASCII_TREE_RENDERER

@@ -15,18 +15,7 @@
 
 namespace duckdb {
 
-//! A structured operator-info value: a labeled tree with scalar attributes per node.
-//! Producers (ParamsToString / table function to_string callbacks) can attach one instead of a
-//! pre-rendered string; each renderer then renders it natively (nested boxes in text, nested
-//! objects in JSON) or falls back to the indented flat form from ExplainValue::ToString.
-struct ExplainNode {
-	explicit ExplainNode(string label = string()) : label(std::move(label)) {
-	}
-
-	string label;
-	InsertionOrderPreservingMap<string> attributes;
-	vector<ExplainNode> children;
-};
+struct ExplainNode;
 
 //! A single operator-info ("extra info") value: either a plain string or a structured tree.
 //! Implicitly constructible from strings so existing `result["key"] = "value"` producers work
@@ -38,11 +27,16 @@ public:
 	}
 	ExplainValue(const char *scalar_p) : scalar(scalar_p) { // NOLINT: allow implicit conversion
 	}
-	explicit ExplainValue(ExplainNode node) : structured(make_shared_ptr<ExplainNode>(std::move(node))) {
-	}
+	explicit ExplainValue(ExplainNode node);
+
+	//! A duration, formatted like an operator's timing; deterministic renderers print it as zero
+	static ExplainValue Timing(double seconds);
 
 	bool IsStructured() const {
 		return structured != nullptr;
+	}
+	bool IsTiming() const {
+		return timing;
 	}
 	const string &Scalar() const {
 		return scalar;
@@ -59,6 +53,20 @@ public:
 private:
 	string scalar;
 	shared_ptr<ExplainNode> structured;
+	bool timing = false;
+};
+
+//! A structured operator-info value: a labeled tree with attributes per node.
+//! Producers (ParamsToString / table function to_string callbacks) can attach one instead of a
+//! pre-rendered string; each renderer then renders it natively (nested boxes in text, nested
+//! objects in JSON) or falls back to the indented flat form from ExplainValue::ToString.
+struct ExplainNode {
+	ExplainNode() = default;
+	explicit ExplainNode(string label_p);
+
+	string label;
+	InsertionOrderPreservingMap<ExplainValue> attributes;
+	vector<ExplainNode> children;
 };
 
 } // namespace duckdb

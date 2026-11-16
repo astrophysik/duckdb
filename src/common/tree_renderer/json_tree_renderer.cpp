@@ -65,7 +65,7 @@ static JSONMutableValue RenderExplainNode(JSONWriter &writer, const ExplainNode 
 	auto object = writer.CreateObject();
 	object.AddString("name", node.label);
 	for (auto &attr : node.attributes) {
-		object.AddString(attr.first, attr.second);
+		object.AddString(attr.first, attr.second.ToString());
 	}
 	if (!node.children.empty()) {
 		auto children = writer.CreateArray();
