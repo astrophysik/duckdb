@@ -224,6 +224,9 @@ public:
 
 	//! Return a string that formats the give number of bytes
 	DUCKDB_API static string BytesToHumanReadableString(idx_t bytes, idx_t multiplier = 1024);
+	DUCKDB_API static string FormatTiming(double seconds);
+	//! Remove the redundant outer pair of parentheses wrapping an expression, e.g. "(a >= 1)" -> "a >= 1".
+	DUCKDB_API static string StripOuterParens(string text);
 
 	DUCKDB_API static string TryParseFormattedBytes(const string &arg, idx_t &result);
 

@@ -357,6 +357,48 @@ string StringUtil::BytesToHumanReadableString(idx_t bytes, idx_t multiplier) {
 	return to_string(array[0]) + (bytes == 1 ? " byte" : " bytes");
 }
 
+string StringUtil::FormatTiming(double seconds) {
+	if (seconds >= 1.0) {
+		return StringUtil::Format("%.2fs", seconds);
+	}
+	if (seconds >= 0.001) {
+		return StringUtil::Format("%.1fms", seconds * 1000.0);
+	}
+	return StringUtil::Format("%.0fµs", seconds * 1000000.0);
+}
+
+string StringUtil::StripOuterParens(string text) {
+	while (text.size() >= 2 && text.front() == '(' && text.back() == ')') {
+		idx_t depth = 0;
+		bool in_quote = false;
+		bool wraps = true;
+		for (idx_t i = 0; i < text.size(); i++) {
+			char c = text[i];
+			if (c == '\'') {
+				in_quote = !in_quote;
+				continue;
+			}
+			if (in_quote) {
+				continue;
+			}
+			if (c == '(') {
+				depth++;
+			} else if (c == ')') {
+				depth--;
+				if (depth == 0 && i + 1 != text.size()) {
+					wraps = false;
+					break;
+				}
+			}
+		}
+		if (!wraps || depth != 0 || in_quote) {
+			break;
+		}
+		text = text.substr(1, text.size() - 2);
+	}
+	return text;
+}
+
 string StringUtil::TryParseFormattedBytes(const string &arg, idx_t &result) {
 	// split based on the number/non-number
 	idx_t idx = 0;

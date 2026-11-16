@@ -388,43 +388,6 @@ static TreeRenderType GetOperatorType(const ExplainTreeNode &node) {
 	return TreeRenderType::NODE_NAME;
 }
 
-//! Remove the redundant outer pair of parentheses wrapping an expression, e.g. "(a >= 1)" -> "a >= 1".
-static string StripOuterParens(string text) {
-	while (text.size() >= 2 && text.front() == '(' && text.back() == ')') {
-		idx_t depth = 0;
-		bool in_quote = false;
-		bool wraps = true;
-		for (idx_t i = 0; i < text.size(); i++) {
-			char c = text[i];
-			if (c == '\'') {
-				in_quote = !in_quote;
-				continue;
-			}
-			if (in_quote) {
-				continue;
-			}
-			if (c == '(') {
-				depth++;
-			} else if (c == ')') {
-				if (depth == 0) {
-					wraps = false;
-					break;
-				}
-				depth--;
-				if (depth == 0 && i + 1 != text.size()) {
-					wraps = false;
-					break;
-				}
-			}
-		}
-		if (!wraps || depth != 0 || in_quote) {
-			break;
-		}
-		text = text.substr(1, text.size() - 2);
-	}
-	return text;
-}
-
 //! Convert a structured extra-info value into a renderable detail subtree
 static unique_ptr<ExplainTreeNode> ConvertExplainNode(const ExplainNode &explain_node) {
 	auto node = make_uniq<ExplainTreeNode>();
@@ -491,7 +454,7 @@ static unique_ptr<ExplainTreeNode> BuildExplainTree(RenderTree &tree, idx_t x, i
 			continue;
 		}
 		for (auto &v : values) {
-			v = StripOuterParens(std::move(v));
+			v = StringUtil::StripOuterParens(std::move(v));
 		}
 		// internal keys (e.g. __projections__) are cleaned up for display: __projections__ -> "Projections"
 		string display_key = key;
@@ -552,20 +515,10 @@ static string FormatCount(idx_t count, char thousand_separator) {
 	return formatted;
 }
 
-static string FormatTiming(double seconds) {
-	if (seconds >= 1.0) {
-		return StringUtil::Format("%.2fs", seconds);
-	}
-	if (seconds >= 0.001) {
-		return StringUtil::Format("%.1fms", seconds * 1000.0);
-	}
-	return StringUtil::Format("%.0fµs", seconds * 1000000.0);
-}
-
 //! Heat-color the timing based on the share of the total query time spent in this operator
 static ExplainSpan TimingSpan(double seconds, double total_time) {
 	double fraction = total_time > 0 ? seconds / total_time : 0;
-	auto text = FormatTiming(seconds);
+	auto text = StringUtil::FormatTiming(seconds);
 	if (fraction >= 0.25) {
 		return ExplainSpan(std::move(text), TreeRenderType::TIMING_CRITICAL);
 	}
