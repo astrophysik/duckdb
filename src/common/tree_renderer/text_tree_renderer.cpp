@@ -352,7 +352,7 @@ static idx_t MaxNodeRows(const ExplainTreeNode &node) {
 //! The operator name as shown in a box title - underscores become spaces and the result is title-cased
 //! (e.g. HASH_JOIN -> Hash Join)
 static string DisplayName(const string &name, bool upper_case) {
-	if (upper_case) {
+	if (upper_case || std::any_of(name.begin(), name.end(), [](char c) { return c >= 'a' && c <= 'z'; })) {
 		// keep the raw operator name (e.g. HASH_JOIN)
 		return name;
 	}
