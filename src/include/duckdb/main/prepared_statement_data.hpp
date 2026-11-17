@@ -69,6 +69,17 @@ public:
 
 	shared_ptr<PreparedStatementData> plan;
 	timestamp_tz_t prepare_time;
+	idx_t generic_plans = 0;
+	idx_t custom_plans = 0;
+
+public:
+	DUCKDB_API void Replan(shared_ptr<PreparedStatementData> replanned);
+	DUCKDB_API void MakeCustomPlanOf(shared_ptr<PreparedStatementEntry> statement);
+	DUCKDB_API void CountExecution(bool planned);
+
+private:
+	shared_ptr<PreparedStatementEntry> custom_plan_of;
+	bool unexecuted_replan = false;
 };
 
 DUCKDB_API bool CheckCatalogIdentity(ClientContext &context, const Identifier &catalog_name,

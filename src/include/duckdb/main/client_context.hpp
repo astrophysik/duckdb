@@ -286,6 +286,9 @@ public:
 	DUCKDB_API unique_ptr<PreparedStatement>
 	Replan(const shared_ptr<PreparedStatementEntry> &entry, unique_ptr<SQLStatement> statement,
 	       optional_ptr<const case_insensitive_map_t<LogicalType>> parameter_type_hints = nullptr);
+	DUCKDB_API unique_ptr<PreparedStatement>
+	PrepareCustomPlan(const shared_ptr<PreparedStatementEntry> &entry, unique_ptr<SQLStatement> statement,
+	                  optional_ptr<const case_insensitive_map_t<LogicalType>> parameter_type_hints = nullptr);
 	//! Deallocate the prepared statement with the given name - does nothing if it does not exist
 	DUCKDB_API void RemovePreparedStatement(const string &name);
 	DUCKDB_API shared_ptr<PreparedStatementEntry> RegisterPreparedStatement(const Identifier &name,
@@ -421,6 +424,9 @@ private:
 	PrepareInternal(ClientContextLock &lock, unique_ptr<SQLStatement> statement,
 	                optional_ptr<const case_insensitive_map_t<LogicalType>> parameter_type_hints = nullptr,
 	                optional_ptr<const Identifier> name = nullptr);
+	unique_ptr<PreparedStatement>
+	PrepareOf(const shared_ptr<PreparedStatementEntry> &entry, unique_ptr<SQLStatement> statement,
+	          optional_ptr<const case_insensitive_map_t<LogicalType>> parameter_type_hints, bool custom);
 	void LogQueryInternal(ClientContextLock &lock, std::string_view query);
 
 	unique_ptr<ClientContextLock> LockContext();

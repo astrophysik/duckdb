@@ -546,14 +546,30 @@ ClientContext::PrepareInternal(ClientContextLock &lock, unique_ptr<SQLStatement>
 unique_ptr<PreparedStatement>
 ClientContext::Replan(const shared_ptr<PreparedStatementEntry> &entry, unique_ptr<SQLStatement> statement,
                       optional_ptr<const case_insensitive_map_t<LogicalType>> parameter_type_hints) {
+	return PrepareOf(entry, std::move(statement), parameter_type_hints, false);
+}
+
+unique_ptr<PreparedStatement>
+ClientContext::PrepareCustomPlan(const shared_ptr<PreparedStatementEntry> &entry, unique_ptr<SQLStatement> statement,
+                                 optional_ptr<const case_insensitive_map_t<LogicalType>> parameter_type_hints) {
+	return PrepareOf(entry, std::move(statement), parameter_type_hints, true);
+}
+
+unique_ptr<PreparedStatement>
+ClientContext::PrepareOf(const shared_ptr<PreparedStatementEntry> &entry, unique_ptr<SQLStatement> statement,
+                         optional_ptr<const case_insensitive_map_t<LogicalType>> parameter_type_hints, bool custom) {
 	auto lock = LockContext();
 	auto query = statement->query;
 	try {
 		InitialCleanup(*lock);
 		auto prepared = PrepareInternal(*lock, std::move(statement), parameter_type_hints, nullptr);
 		auto &handle = client_data->prepared_statements.find(prepared->GetName())->second;
-		entry->plan = std::move(handle->plan);
-		handle = entry;
+		if (custom) {
+			handle->MakeCustomPlanOf(entry);
+		} else {
+			entry->Replan(std::move(handle->plan));
+			handle = entry;
+		}
 		return prepared;
 	} catch (std::exception &ex) {
 		return ErrorResult<PreparedStatement>(ErrorData(ex), query);

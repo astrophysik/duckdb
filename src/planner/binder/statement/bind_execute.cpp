@@ -166,6 +166,7 @@ BoundStatement Binder::Bind(ExecuteStatement &stmt) {
 	result.types = prepared->types;
 
 	prepared->Bind(context, bind_values);
+	entry->second->CountExecution(rebound_plan != nullptr);
 	if (rebound_plan) {
 		auto execute_plan = make_uniq<LogicalExecute>(std::move(prepared));
 		execute_plan->replaces = std::move(replaces);

@@ -22,6 +22,26 @@ PreparedStatementEntry::PreparedStatementEntry(shared_ptr<PreparedStatementData>
 	D_ASSERT(plan);
 }
 
+void PreparedStatementEntry::Replan(shared_ptr<PreparedStatementData> replanned) {
+	plan = std::move(replanned);
+	unexecuted_replan = true;
+}
+
+void PreparedStatementEntry::MakeCustomPlanOf(shared_ptr<PreparedStatementEntry> statement) {
+	statement->unexecuted_replan = true;
+	custom_plan_of = std::move(statement);
+}
+
+void PreparedStatementEntry::CountExecution(bool planned) {
+	auto &statement = custom_plan_of ? *custom_plan_of : *this;
+	if (planned || statement.unexecuted_replan) {
+		statement.custom_plans++;
+	} else {
+		statement.generic_plans++;
+	}
+	statement.unexecuted_replan = false;
+}
+
 void PreparedStatementData::CheckParameterCount(idx_t parameter_count) {
 	const auto required = properties.parameter_count;
 	if (parameter_count != required) {
