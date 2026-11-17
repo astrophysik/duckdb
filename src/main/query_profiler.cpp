@@ -483,6 +483,10 @@ void OperatorMetrics::Accumulate(const OperatorMetrics &other) {
 void OperatorMetrics::Merge(const OperatorMetrics &other) {
 	MergeInternal(other);
 	total_row_groups_to_scan = MaxValue<idx_t>(total_row_groups_to_scan, other.total_row_groups_to_scan);
+	if (other.final_extra_info_version > final_extra_info_version) {
+		final_extra_info = other.final_extra_info;
+		final_extra_info_version = other.final_extra_info_version;
+	}
 }
 
 void OperatorProfiler::EndOperator(optional_ptr<DataChunk> chunk) {
@@ -990,6 +994,24 @@ void QueryProfiler::Print() {
 	PrintProfilerOutput(renderer.get());
 }
 
+static void ApplyFinalExtraInfo(ProfilingNode &node) {
+	auto &metrics = node.GetOperatorMetrics();
+	if (auto final_info = std::move(metrics.final_extra_info)) {
+		metrics.final_extra_info_version = 0;
+		auto extra_info = metrics.GetExtraInfo();
+		for (auto &entry : *final_info) {
+			extra_info.erase(entry.first);
+			if (!entry.second.empty()) {
+				extra_info.insert(entry.first, entry.second);
+			}
+		}
+		metrics.SetExtraInfo(std::move(extra_info));
+	}
+	for (idx_t i = 0; i < node.GetChildCount(); i++) {
+		ApplyFinalExtraInfo(*node.GetChild(i));
+	}
+}
+
 static void MergeOperatorMeasurements(ProfilingNode &root, OperatorMetrics &result) {
 	// merge in this layer
 	result.Accumulate(root.GetOperatorMetrics());
@@ -1036,6 +1058,7 @@ void QueryProfiler::FinalizeMetricsInternal() {
 		// collapse secure views first - the query-wide totals are sums over the operator tree, so leaving the
 		// operators of the view in would expose how much of the table behind it was scanned. The time of the view
 		// is accumulated onto its boundary node, so the total CPU time still covers the whole query.
+		ApplyFinalExtraInfo(*root);
 		CollapseSecureViews(*root);
 		OperatorMetrics cumulative_metrics;
 		MergeOperatorMeasurements(*root, cumulative_metrics);

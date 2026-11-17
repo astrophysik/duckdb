@@ -30,6 +30,8 @@ struct OperatorMetrics {
 	idx_t rows_scanned;
 	idx_t row_groups_scanned;
 	idx_t total_row_groups_to_scan;
+	shared_ptr<const InsertionOrderPreservingMap<ExplainValue>> final_extra_info;
+	idx_t final_extra_info_version;
 
 	profiler_metrics_t GetMetrics(const GatheredMetrics &info) const;
 	void ResetMetrics() {
@@ -43,6 +45,8 @@ struct OperatorMetrics {
 		total_row_groups_to_scan = 0;
 		operator_type = PhysicalOperatorType::INVALID;
 		extra_info.clear();
+		final_extra_info.reset();
+		final_extra_info_version = 0;
 	}
 	void AddExtraInfo(string key, ExplainValue value) {
 		extra_info.insert(make_pair(std::move(key), std::move(value)));
