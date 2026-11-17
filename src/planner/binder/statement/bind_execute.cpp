@@ -61,7 +61,7 @@ BoundStatement Binder::Bind(ExecuteStatement &stmt) {
 
 	// check if we need to rebind the prepared statement
 	// this happens if the catalog changes, since in this case e.g. tables we relied on may have been deleted
-	auto prepared = entry->second;
+	auto prepared = entry->second->plan;
 	auto &named_param_map = prepared->unbound_statement->named_param_map;
 	const auto provided = stmt.bound_values.empty() ? stmt.named_values.size() : stmt.bound_values.size();
 	if (provided != named_param_map.size() && OnlyPositionalParameters(named_param_map)) {
@@ -129,18 +129,17 @@ BoundStatement Binder::Bind(ExecuteStatement &stmt) {
 			rebind = RebindQueryInfo::ATTEMPT_TO_REBIND;
 		}
 	}
-	optional<Identifier> replaces;
+	shared_ptr<PreparedStatementEntry> replaces;
 	if (rebind != RebindQueryInfo::ATTEMPT_TO_REBIND && !prepared->IsCurrent(context)) {
 		Planner generic_planner(context);
 		generic_planner.parameter_type_hints = prepared->parameter_type_hints;
 		auto replanned = generic_planner.PrepareSQLStatement(prepared->unbound_statement->Copy());
 		if (replanned->properties.bound_all_parameters) {
-			VerifyResultTypes(stmt, *entry->second, *replanned, bind_values);
+			VerifyResultTypes(stmt, *entry->second->plan, *replanned, bind_values);
 			replanned->parameter_type_hints = prepared->parameter_type_hints;
-			replanned->prepare_time = prepared->prepare_time;
 			prepared = std::move(replanned);
 			rebound_plan = std::move(generic_planner.plan);
-			replaces = stmt.name;
+			replaces = entry->second;
 			global_binder_state->bound_tables = generic_planner.binder->global_binder_state->bound_tables;
 		} else {
 			rebind = RebindQueryInfo::ATTEMPT_TO_REBIND;
@@ -149,10 +148,10 @@ BoundStatement Binder::Bind(ExecuteStatement &stmt) {
 	if (rebind == RebindQueryInfo::ATTEMPT_TO_REBIND) {
 		Planner prepared_planner(context);
 		prepared_planner.parameter_data = bind_values;
-		prepared_planner.parameter_type_hints = entry->second->parameter_type_hints;
-		prepared = prepared_planner.PrepareSQLStatement(entry->second->unbound_statement->Copy());
-		VerifyResultTypes(stmt, *entry->second, *prepared, bind_values);
-		prepared->parameter_type_hints = entry->second->parameter_type_hints;
+		prepared_planner.parameter_type_hints = entry->second->plan->parameter_type_hints;
+		prepared = prepared_planner.PrepareSQLStatement(entry->second->plan->unbound_statement->Copy());
+		VerifyResultTypes(stmt, *entry->second->plan, *prepared, bind_values);
+		prepared->parameter_type_hints = entry->second->plan->parameter_type_hints;
 		rebound_plan = std::move(prepared_planner.plan);
 		D_ASSERT(prepared->properties.bound_all_parameters);
 		global_binder_state->bound_tables = prepared_planner.binder->global_binder_state->bound_tables;

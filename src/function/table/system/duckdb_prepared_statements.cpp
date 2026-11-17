@@ -39,7 +39,7 @@ unique_ptr<GlobalTableFunctionState> DuckDBPreparedStatementsInit(ClientContext 
 	auto result = make_uniq<DuckDBPreparedStatementsData>();
 	auto &prepared_statements = context.client_data->prepared_statements;
 	for (auto &it : prepared_statements) {
-		result->entries.emplace_back(it.first, it.second);
+		result->entries.emplace_back(it.first, it.second->plan);
 	}
 	return std::move(result);
 }

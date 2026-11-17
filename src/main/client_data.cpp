@@ -239,8 +239,8 @@ ClientData::ClientData(ClientContext &context) : catalog_search_path(make_uniq<C
 
 	default_database = DatabaseManager::Get(db).GetDefaultDatabase();
 	if (Settings::Get<PreserveIdentifierCaseSetting>(context) != IdentifierCaseMode::PRESERVE_CASE) {
-		prepared_statements = identifier_map_t<shared_ptr<PreparedStatementData>>(0, IdentifierHashFunction(true),
-		                                                                          IdentifierEquality(true));
+		prepared_statements = identifier_map_t<shared_ptr<PreparedStatementEntry>>(0, IdentifierHashFunction(true),
+		                                                                           IdentifierEquality(true));
 	}
 	profiler = make_shared_ptr<QueryProfiler>(context);
 	temporary_objects = make_shared_ptr<AttachedDatabase>(db, AttachedDatabaseType::TEMP_DATABASE);

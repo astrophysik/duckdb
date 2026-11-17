@@ -21,7 +21,7 @@ class CatalogSearchPath;
 class FileOpener;
 class FileSystem;
 class QueryProfiler;
-class PreparedStatementData;
+class PreparedStatementEntry;
 class RandomEngine;
 class BufferManager;
 
@@ -37,7 +37,7 @@ public:
 	//! The set of temporary objects belonging to this client.
 	shared_ptr<AttachedDatabase> temporary_objects;
 	//! The set of bound prepared statements belonging to this client.
-	identifier_map_t<shared_ptr<PreparedStatementData>> prepared_statements;
+	identifier_map_t<shared_ptr<PreparedStatementEntry>> prepared_statements;
 	unique_ptr<SequenceSession> sequence_session;
 
 	//! The random generator used by random().

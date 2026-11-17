@@ -44,6 +44,7 @@ class FileOpener;
 class LogicalOperator;
 class PreparedStatement;
 class PreparedStatementData;
+class PreparedStatementEntry;
 class StatementIterator;
 class Relation;
 class BufferedFileWriter;
@@ -282,9 +283,13 @@ public:
 	Prepare(unique_ptr<SQLStatement> statement,
 	        optional_ptr<const case_insensitive_map_t<LogicalType>> parameter_type_hints = nullptr,
 	        optional_ptr<const Identifier> name = nullptr);
+	DUCKDB_API unique_ptr<PreparedStatement>
+	Replan(const shared_ptr<PreparedStatementEntry> &entry, unique_ptr<SQLStatement> statement,
+	       optional_ptr<const case_insensitive_map_t<LogicalType>> parameter_type_hints = nullptr);
 	//! Deallocate the prepared statement with the given name - does nothing if it does not exist
 	DUCKDB_API void RemovePreparedStatement(const string &name);
-	DUCKDB_API void RegisterPreparedStatement(const Identifier &name, unique_ptr<SQLStatement> statement);
+	DUCKDB_API shared_ptr<PreparedStatementEntry> RegisterPreparedStatement(const Identifier &name,
+	                                                                        unique_ptr<SQLStatement> statement);
 	DUCKDB_API static bool IsPreparedStatementHandle(const Identifier &name);
 	//! Bind a statement and return its signature, without building a PreparedStatement, optimizing, or
 	//! executing. Read-only: binding touches no in-flight query state, so a live result survives. Throws on error.

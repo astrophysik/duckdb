@@ -265,7 +265,7 @@ static bool IsExplainAnalyze(ClientContext &context, SQLStatement *statement) {
 	if (statement && statement->type == StatementType::EXECUTE_STATEMENT) {
 		auto &prepared_statements = ClientData::Get(context).prepared_statements;
 		auto entry = prepared_statements.find(statement->Cast<ExecuteStatement>().name);
-		statement = entry == prepared_statements.end() ? nullptr : entry->second->unbound_statement.get();
+		statement = entry == prepared_statements.end() ? nullptr : entry->second->plan->unbound_statement.get();
 	}
 	if (!statement) {
 		return false;
@@ -540,7 +540,24 @@ ClientContext::PrepareInternal(ClientContextLock &lock, unique_ptr<SQLStatement>
 		throw CatalogException::DuplicatePreparedStatement(*name);
 	}
 	return make_uniq<PreparedStatement>(shared_from_this(), handle.GetIdentifierName(), std::move(statement_query),
-	                                    GetPreparedStatementInfo(*prepared));
+	                                    GetPreparedStatementInfo(*prepared->plan));
+}
+
+unique_ptr<PreparedStatement>
+ClientContext::Replan(const shared_ptr<PreparedStatementEntry> &entry, unique_ptr<SQLStatement> statement,
+                      optional_ptr<const case_insensitive_map_t<LogicalType>> parameter_type_hints) {
+	auto lock = LockContext();
+	auto query = statement->query;
+	try {
+		InitialCleanup(*lock);
+		auto prepared = PrepareInternal(*lock, std::move(statement), parameter_type_hints, nullptr);
+		auto &handle = client_data->prepared_statements.find(prepared->GetName())->second;
+		entry->plan = std::move(handle->plan);
+		handle = entry;
+		return prepared;
+	} catch (std::exception &ex) {
+		return ErrorResult<PreparedStatement>(ErrorData(ex), query);
+	}
 }
 
 void ClientContext::RemovePreparedStatement(const string &name) {
@@ -548,16 +565,18 @@ void ClientContext::RemovePreparedStatement(const string &name) {
 	client_data->prepared_statements.erase(name);
 }
 
-void ClientContext::RegisterPreparedStatement(const Identifier &name, unique_ptr<SQLStatement> statement) {
+shared_ptr<PreparedStatementEntry> ClientContext::RegisterPreparedStatement(const Identifier &name,
+                                                                            unique_ptr<SQLStatement> statement) {
 	auto lock = LockContext();
 	auto prepared = make_shared_ptr<PreparedStatementData>(statement->type);
 	prepared->unbound_statement = std::move(statement);
 	prepared->properties.return_type = StatementReturnType::NOTHING;
 	prepared->properties.always_require_rebind = true;
-	prepared->prepare_time = timestamp_tz_t(Timestamp::GetCurrentTimestamp());
-	if (!client_data->prepared_statements.try_emplace(name, std::move(prepared)).second) {
+	auto entry = make_shared_ptr<PreparedStatementEntry>(std::move(prepared));
+	if (!client_data->prepared_statements.try_emplace(name, entry).second) {
 		throw CatalogException::DuplicatePreparedStatement(name);
 	}
+	return entry;
 }
 
 unique_ptr<PreparedStatement>

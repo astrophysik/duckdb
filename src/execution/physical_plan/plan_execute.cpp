@@ -1,6 +1,5 @@
 #include "duckdb/execution/operator/helper/physical_execute.hpp"
 #include "duckdb/execution/physical_plan_generator.hpp"
-#include "duckdb/main/client_data.hpp"
 #include "duckdb/planner/operator/logical_execute.hpp"
 
 namespace duckdb {
@@ -17,7 +16,7 @@ PhysicalOperator &PhysicalPlanGenerator::CreatePlan(LogicalExecute &op) {
 		PhysicalPlanGenerator inner_planner(context);
 		op.prepared->physical_plan = inner_planner.PlanInternal(*op.children[0]);
 		op.prepared->types = op.prepared->physical_plan->Root().types;
-		ClientData::Get(context).prepared_statements[*op.replaces] = op.prepared;
+		op.replaces->plan = op.prepared;
 		return Make<PhysicalExecute>(op.prepared->physical_plan->Root(), op.prepared);
 	}
 	auto &plan = CreatePlan(*op.children[0]);

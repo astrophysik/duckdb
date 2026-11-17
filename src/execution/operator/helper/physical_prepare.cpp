@@ -9,7 +9,8 @@ SourceResultType PhysicalPrepare::GetDataInternal(ExecutionContext &context, Dat
 
 	// store the prepared statement in the context
 	const std::string_view identifier(name.data(), name.size());
-	if (!ClientData::Get(client).prepared_statements.try_emplace(identifier, prepared).second) {
+	auto entry = make_shared_ptr<PreparedStatementEntry>(prepared);
+	if (!ClientData::Get(client).prepared_statements.try_emplace(identifier, std::move(entry)).second) {
 		throw CatalogException::DuplicatePreparedStatement(Identifier(identifier));
 	}
 

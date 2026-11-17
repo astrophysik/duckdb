@@ -47,7 +47,6 @@ public:
 	bound_parameter_map_t value_map;
 
 	case_insensitive_map_t<LogicalType> parameter_type_hints;
-	timestamp_tz_t prepare_time = timestamp_tz_t::epoch();
 
 public:
 	void CheckParameterCount(idx_t parameter_count);
@@ -62,6 +61,14 @@ public:
 	DUCKDB_API LogicalType GetType(const Identifier &identifier);
 	//! Try to get the expected SQL Type of the bound parameter
 	DUCKDB_API bool TryGetType(const Identifier &identifier, LogicalType &result);
+};
+
+class PreparedStatementEntry {
+public:
+	DUCKDB_API explicit PreparedStatementEntry(shared_ptr<PreparedStatementData> plan);
+
+	shared_ptr<PreparedStatementData> plan;
+	timestamp_tz_t prepare_time;
 };
 
 DUCKDB_API bool CheckCatalogIdentity(ClientContext &context, const Identifier &catalog_name,

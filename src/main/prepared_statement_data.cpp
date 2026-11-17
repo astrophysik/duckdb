@@ -17,6 +17,11 @@ PreparedStatementData::PreparedStatementData(StatementType type) : statement_typ
 PreparedStatementData::~PreparedStatementData() {
 }
 
+PreparedStatementEntry::PreparedStatementEntry(shared_ptr<PreparedStatementData> plan_p)
+    : plan(std::move(plan_p)), prepare_time(Timestamp::GetCurrentTimestamp()) {
+	D_ASSERT(plan);
+}
+
 void PreparedStatementData::CheckParameterCount(idx_t parameter_count) {
 	const auto required = properties.parameter_count;
 	if (parameter_count != required) {
