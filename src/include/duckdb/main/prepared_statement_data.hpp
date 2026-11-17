@@ -69,6 +69,7 @@ public:
 
 	shared_ptr<PreparedStatementData> plan;
 	timestamp_tz_t prepare_time;
+	bool from_sql = false;
 	idx_t generic_plans = 0;
 	idx_t custom_plans = 0;
 
