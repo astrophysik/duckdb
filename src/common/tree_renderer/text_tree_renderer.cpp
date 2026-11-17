@@ -9,6 +9,7 @@
 #include "utf8proc_wrapper.hpp"
 #include "duckdb/common/typedefs.hpp"
 
+#include <absl/strings/str_cat.h>
 #include <algorithm>
 
 namespace duckdb {
@@ -302,6 +303,7 @@ struct ExplainDetail {
 	string key;
 	vector<string> values;
 	bool timing = false;
+	bool section = false;
 	unique_ptr<ExplainTreeNode> subtree;
 	//! subtree lines are rendered lazily by the box renderer and cached here (width incl.)
 	mutable vector<ExplainLine> subtree_lines;
@@ -389,24 +391,40 @@ static TreeRenderType GetOperatorType(const ExplainTreeNode &node) {
 	return TreeRenderType::NODE_NAME;
 }
 
+static ExplainDetail ConvertAttribute(const string &key, const ExplainValue &value) {
+	ExplainDetail detail;
+	detail.key = key;
+	detail.values = StringUtil::Split(value.ToString(), "\n");
+	detail.timing = value.IsTiming();
+	return detail;
+}
+
 //! Convert a structured extra-info value into a renderable detail subtree
 static unique_ptr<ExplainTreeNode> ConvertExplainNode(const ExplainNode &explain_node) {
 	auto node = make_uniq<ExplainTreeNode>();
 	node->name = explain_node.label;
 	for (auto &attr : explain_node.attributes) {
-		ExplainDetail detail;
-		detail.key = attr.first;
-		detail.values = StringUtil::Split(attr.second.ToString(), "\n");
-		if (detail.values.empty()) {
-			detail.values.push_back(string());
-		}
-		detail.timing = attr.second.IsTiming();
-		node->details.push_back(std::move(detail));
+		node->details.push_back(ConvertAttribute(attr.first, attr.second));
 	}
 	for (auto &child : explain_node.children) {
 		node->children.push_back(ConvertExplainNode(child));
 	}
 	return node;
+}
+
+static void ConvertSection(const string &title, const ExplainNode &section, vector<ExplainDetail> &details) {
+	ExplainDetail header;
+	header.key = title;
+	header.section = true;
+	details.push_back(std::move(header));
+	for (auto &attr : section.attributes) {
+		details.push_back(ConvertAttribute(attr.first, attr.second));
+	}
+	for (auto &child : section.children) {
+		ExplainDetail tree;
+		tree.subtree = ConvertExplainNode(child);
+		details.push_back(std::move(tree));
+	}
 }
 
 //! Build the renderer's plan tree from a RenderTree (mapping the extra_text metadata onto name/details/rows/timing)
@@ -442,6 +460,10 @@ static unique_ptr<ExplainTreeNode> BuildExplainTree(RenderTree &tree, idx_t x, i
 		if (key == RenderTreeNode::TIMING) {
 			// stored as a formatted "<seconds>s" string - parse the leading number back to seconds
 			node->timing = std::strtod(value.Scalar().c_str(), nullptr);
+			continue;
+		}
+		if (value.IsSection()) {
+			ConvertSection(key, value.Structured(), node->details);
 			continue;
 		}
 		if (value.IsStructured()) {
@@ -880,6 +902,10 @@ private:
 			if (condensed && !IsEssentialDetail(entry)) {
 				continue;
 			}
+			if (entry.section) {
+				width = MaxValue<idx_t>(width, RenderLength(entry.key) + 2);
+				continue;
+			}
 			if (entry.subtree) {
 				box_art_width = MaxValue<idx_t>(box_art_width, SubtreeDetailWidth(entry));
 				continue;
@@ -1032,17 +1058,57 @@ private:
 		return MaxValue<idx_t>(left_width, right_width);
 	}
 
+	static ExplainLine Border(const char *left, const char *right, idx_t box_width) {
+		ExplainLine line;
+		line.emplace_back(absl::StrCat(left, StringUtil::Repeat("─", box_width - 2), right), TreeRenderType::LAYOUT);
+		return line;
+	}
+
+	static ExplainLine TitledBorder(const char *left, const char *right, idx_t box_width, string title,
+	                                TreeRenderType title_type) {
+		idx_t title_width = RenderLength(title);
+		ExplainLine line;
+		line.emplace_back(absl::StrCat(left, "─ "), TreeRenderType::LAYOUT);
+		line.emplace_back(std::move(title), title_type);
+		line.emplace_back(absl::StrCat(" ", StringUtil::Repeat("─", box_width - 5 - title_width), right),
+		                  TreeRenderType::LAYOUT);
+		return line;
+	}
+
 	ExplainBlock BuildBox(const ExplainTreeNode &node, idx_t chain_width) {
 		idx_t content_width = EffectiveWidth(chain_width);
+		idx_t box_width = content_width + 4;
 
 		vector<ExplainLine> content;
+		vector<pair<idx_t, ExplainLine>> delimiters;
+		const auto add_delimiter = [&](const string &title) {
+			if (!content.empty()) {
+				content.emplace_back();
+			}
+			if (title.empty()) {
+				delimiters.emplace_back(content.size(), Border("├", "┤", box_width));
+				content.emplace_back();
+				return;
+			}
+			auto shown = TruncateText(title, content_width >= 2 ? content_width - 2 : 1);
+			delimiters.emplace_back(content.size(),
+			                        TitledBorder("├", "┤", box_width, std::move(shown), TreeRenderType::KEY));
+			content.emplace_back();
+			content.emplace_back();
+		};
+		bool in_section = false;
 		bool condensed = IsCondensed(node);
 		for (auto &entry : node.details) {
 			if (condensed && !IsEssentialDetail(entry)) {
 				hid_content = true;
 				continue;
 			}
-			bool has_key = entry.key != "Text";
+			if (entry.section) {
+				add_delimiter(entry.key);
+				in_section = true;
+				continue;
+			}
+			bool has_key = !entry.key.empty() && entry.key != "Text";
 			if (entry.key == "Table" && !entry.values.empty()) {
 				// render the table name inline on a single line, truncating the (less important) catalog/schema
 				// prefix rather than the table name itself when the qualified name does not fit
@@ -1056,6 +1122,9 @@ private:
 			}
 			if (entry.subtree) {
 				// structured detail: splice the nested box tree in as content lines (the box was grown to fit it)
+				if (in_section && !content.back().empty()) {
+					content.emplace_back();
+				}
 				if (has_key) {
 					content.emplace_back();
 					content.back().emplace_back(entry.key + ":", TreeRenderType::KEY);
@@ -1094,6 +1163,9 @@ private:
 			}
 		}
 		auto metrics = BuildMetrics(node);
+		if (in_section && !metrics.Empty()) {
+			add_delimiter(string());
+		}
 		if (!metrics.Empty()) {
 			idx_t left_width = LineWidth(metrics.left);
 			idx_t right_width = LineWidth(metrics.right);
@@ -1112,16 +1184,16 @@ private:
 		}
 
 		string title = TruncateText(DisplayName(node.name, upper_case), content_width >= 2 ? content_width - 2 : 1);
-		idx_t title_width = RenderLength(title);
-		idx_t box_width = content_width + 4;
 
 		ExplainBlock block;
-		ExplainLine top;
-		top.emplace_back("╭─ ", TreeRenderType::LAYOUT);
-		top.emplace_back(std::move(title), GetOperatorType(node));
-		top.emplace_back(" " + StringUtil::Repeat("─", box_width - 5 - title_width) + "╮", TreeRenderType::LAYOUT);
-		block.lines.push_back(std::move(top));
-		for (auto &line : content) {
+		block.lines.push_back(TitledBorder("╭", "╮", box_width, std::move(title), GetOperatorType(node)));
+		idx_t next_delimiter = 0;
+		for (idx_t i = 0; i < content.size(); i++) {
+			if (next_delimiter < delimiters.size() && delimiters[next_delimiter].first == i) {
+				block.lines.push_back(std::move(delimiters[next_delimiter++].second));
+				continue;
+			}
+			auto &line = content[i];
 			ExplainLine content_line;
 			content_line.emplace_back("│ ", TreeRenderType::LAYOUT);
 			idx_t line_width = LineWidth(line);
@@ -1132,9 +1204,7 @@ private:
 			content_line.emplace_back(string(padding + 1, ' ') + "│", TreeRenderType::LAYOUT);
 			block.lines.push_back(std::move(content_line));
 		}
-		ExplainLine bottom;
-		bottom.emplace_back("╰" + StringUtil::Repeat("─", box_width - 2) + "╯", TreeRenderType::LAYOUT);
-		block.lines.push_back(std::move(bottom));
+		block.lines.push_back(Border("╰", "╯", box_width));
 		block.width = box_width;
 		block.spine = box_width / 2;
 		return block;

@@ -31,9 +31,13 @@ public:
 
 	//! A duration, formatted like an operator's timing; deterministic renderers print it as zero
 	static ExplainValue Timing(double seconds);
+	static ExplainValue Section(ExplainNode node);
 
 	bool IsStructured() const {
 		return structured != nullptr;
+	}
+	bool IsSection() const {
+		return section;
 	}
 	bool IsTiming() const {
 		return timing;
@@ -53,6 +57,7 @@ public:
 private:
 	string scalar;
 	shared_ptr<ExplainNode> structured;
+	bool section = false;
 	bool timing = false;
 };
 

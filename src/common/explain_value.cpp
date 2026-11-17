@@ -18,6 +18,12 @@ ExplainValue ExplainValue::Timing(double seconds) {
 	return result;
 }
 
+ExplainValue ExplainValue::Section(ExplainNode node) {
+	ExplainValue result(std::move(node));
+	result.section = true;
+	return result;
+}
+
 static void FlattenExplainNode(const ExplainNode &node, idx_t depth, string &result) {
 	if (!result.empty()) {
 		result += "\n";
@@ -37,7 +43,16 @@ string ExplainValue::ToString() const {
 		return scalar;
 	}
 	string result;
-	FlattenExplainNode(*structured, 0, result);
+	if (!section) {
+		FlattenExplainNode(*structured, 0, result);
+		return result;
+	}
+	for (auto &attr : structured->attributes) {
+		absl::StrAppend(&result, result.empty() ? "" : "\n", attr.first, ": ", attr.second.ToString());
+	}
+	for (auto &child : structured->children) {
+		FlattenExplainNode(child, 0, result);
+	}
 	return result;
 }
 

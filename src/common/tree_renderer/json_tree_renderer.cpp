@@ -63,7 +63,9 @@ void JSONTreeRenderer::Render(const Pipeline &op, BaseTreeRenderer &ss) {
 
 static JSONMutableValue RenderExplainNode(JSONWriter &writer, const ExplainNode &node) {
 	auto object = writer.CreateObject();
-	object.AddString("name", node.label);
+	if (!node.label.empty()) {
+		object.AddString("name", node.label);
+	}
 	for (auto &attr : node.attributes) {
 		object.AddString(attr.first, attr.second.ToString());
 	}
