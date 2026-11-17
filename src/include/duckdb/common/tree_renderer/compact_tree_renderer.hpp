@@ -17,8 +17,9 @@ class PhysicalOperator;
 class Pipeline;
 
 //! Renders a plan as indented text with one operator per line: the name, the cardinality/timing in parentheses and
-//! the operator's properties separated by semicolons. Meant for machine consumers (e.g. AI coding agents) that read
-//! the plan as text, where the box-drawing tree is expensive and the JSON/YAML formats are verbose.
+//! the operator's properties separated by semicolons, with its trees and sections indented below it. Meant for machine
+//! consumers (e.g. AI coding agents) that read the plan as text, where the box-drawing tree is expensive and the
+//! JSON/YAML formats are verbose.
 class CompactTreeRenderer : public TreeRenderer {
 public:
 	explicit CompactTreeRenderer() {
