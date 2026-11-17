@@ -108,9 +108,6 @@ bool PreparedStatementData::RequireRebind(ClientContext &context,
 		// this statement must always be re-bound
 		return true;
 	}
-	if (properties.binding_generation != context.BindingGeneration()) {
-		return true;
-	}
 	if (!properties.bound_all_parameters) {
 		// parameters not yet bound: query always requires a rebind
 		return true;
@@ -124,21 +121,23 @@ bool PreparedStatementData::RequireRebind(ClientContext &context,
 			return true;
 		}
 	}
-	// Check the catalog versions to ensure all catalog entries we rely on are current
+	return false;
+}
+
+bool PreparedStatementData::IsCurrent(ClientContext &context) const {
+	if (properties.binding_generation != context.BindingGeneration()) {
+		return false;
+	}
 	for (auto &it : properties.read_databases) {
 		if (!CheckCatalogIdentity(context, it.first, it.second)) {
-			return true;
+			return false;
 		}
 	}
 	for (auto &it : properties.modified_databases) {
 		if (!CheckCatalogIdentity(context, it.first, it.second.identity)) {
-			return true;
+			return false;
 		}
 	}
-	return false;
-}
-
-bool PreparedStatementData::DataIsCurrent(ClientContext &context) const {
 	if (properties.layout_dependent) {
 		for (auto &read : properties.data_reads) {
 			const auto current = read.entry->GetLayoutVersion(context);
