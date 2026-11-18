@@ -807,7 +807,7 @@ static const char *DashPrefix(const char *name) {
 
 // Subcommand-aware "Run X --help" footer for error messages.
 static string HelpHintLine(const ShellState &state) {
-	const char *display = (state.subcommand == ShellSubcommand::PSQL) ? "serened psql" : "serened shell";
+	const char *display = (state.subcommand == ShellSubcommand::PSQL) ? "serenedb psql" : "serenedb shell";
 	return StringUtil::Format("Run '%s --help' for a list of options.\n", display);
 }
 
@@ -847,7 +847,7 @@ optional_ptr<const CommandLineOption> ShellState::FindCommandLineOption(const st
 
 // Build the displayed program invocation for help/usage output.
 static string DisplayProgramName(const ShellState &state) {
-	return (state.subcommand == ShellSubcommand::PSQL) ? "serened psql" : "serened shell";
+	return (state.subcommand == ShellSubcommand::PSQL) ? "serenedb psql" : "serenedb shell";
 }
 
 // psql help: column at which descriptions start (matches real psql).
@@ -1039,7 +1039,7 @@ static void PrintPsqlSections(ShellState &state) {
 
 	PrintPsqlSectionHeader(h, "Connection options:");
 	entry("  -h, --host=<HOSTNAME>",
-	      "server host (default: $PGHOST or \"localhost\";\npsql defaults to a Unix socket, serened to TCP)");
+	      "server host (default: $PGHOST or \"localhost\";\npsql defaults to a Unix socket, serenedb psql to TCP)");
 	entry("  -p, --port=<PORT>", "server port (default: $PGPORT or \"5432\")");
 	entry("  -U, --username=<USERNAME>", "user name (default: $PGUSER, $USER, or \"postgres\")");
 	entry("  -w, --no-password", "accepted, ignored (no authentication yet)");
@@ -1055,11 +1055,11 @@ static void PrintNotes(ShellState &state, ShellHighlight &h) {
 	if (state.subcommand == ShellSubcommand::PSQL) {
 		state.PrintF("  * pg-wire client; auto-connects on startup (host/port/dbname/user\n"
 		             "    resolved from flags or PG* env vars). For a local-only shell, use\n"
-		             "    `serened shell`.\n"
+		             "    `serenedb shell`.\n"
 		             "  * Accepts DuckDB shell flags too -- --cmd, --init, --bail, --format,\n"
 		             "    --MODE, the whole Database options section, and more.\n"
 		             "  * In this mode: -h is host, -l lists databases, -s is single-step\n"
-		             "    (no-op). All three mean something different in `serened shell`.\n"
+		             "    (no-op). All three mean something different in `serenedb shell`.\n"
 		             "  * Default output is `duckbox` (Unicode + type row), not psql's aligned\n"
 		             "    ASCII. Switch with `--pset format=aligned`.\n"
 		             "  * Not implemented yet: -v / --set / --variable (psql variables),\n"
@@ -1067,11 +1067,11 @@ static void PrintNotes(ShellState &state, ShellHighlight &h) {
 		             "    \\copy, \\timing, ...).\n");
 	} else {
 		state.PrintF("  * Local shell -- no auto-connect. For a pg-wire client, use\n"
-		             "    `serened psql`.\n"
+		             "    `serenedb psql`.\n"
 		             "  * Accepts psql-style flags too -- -A, -x, -t, -P, -1, --no-align,\n"
 		             "    --expanded, --tuples-only, --pset, --single-transaction, and more.\n"
 		             "  * In this mode: -h is help, -l is `list output mode`, -s is alias for\n"
-		             "    -c. All three mean something different in `serened psql`.\n"
+		             "    -c. All three mean something different in `serenedb psql`.\n"
 		             "  * Default output is `duckbox` (Unicode + type row); change with\n"
 		             "    `--pset format=...` or any `--MODE` short flag.\n");
 	}
@@ -1080,7 +1080,7 @@ static void PrintNotes(ShellState &state, ShellHighlight &h) {
 
 static void PrintFooter(ShellState &state) {
 	state.PrintF("For more information, type \".help\" (for dot-commands) or \".help --all\"\n"
-	             "(for the full listing) from within serened, or consult the SereneDB\n"
+	             "(for the full listing) from within the shell, or consult the SereneDB\n"
 	             "documentation.\n"
 	             "\n"
 	             "Report bugs at <https://github.com/serenedb/serenedb/issues>.\n"
@@ -1092,7 +1092,7 @@ void ShellState::PrintUsage() {
 	const auto display = DisplayProgramName(*this);
 
 	if (subcommand == ShellSubcommand::PSQL) {
-		PrintF("serened psql is a PostgreSQL-compatible client for SereneDB.\n\n");
+		PrintF("serenedb psql is a PostgreSQL-compatible client for SereneDB.\n\n");
 		highlighter.PrintText("Usage:\n  ", PrintOutput::STDOUT, PrintColor::STANDARD, PrintIntensity::BOLD);
 		highlighter.PrintText(display, PrintOutput::STDOUT, HighlightElementType::KEYWORD);
 		highlighter.PrintText(" [OPTION]... [DBNAME [USERNAME]]\n\n", PrintOutput::STDOUT,
@@ -1107,7 +1107,7 @@ void ShellState::PrintUsage() {
 	// psql-style flag spellings accepted too. Positional is a duckdb
 	// database file (defaults to :memory:); optional second positional
 	// is SQL run before the REPL starts.
-	PrintF("serened shell is the local interactive shell for SereneDB.\n\n");
+	PrintF("serenedb shell is the local interactive shell for SereneDB.\n\n");
 	highlighter.PrintText("Usage:\n  ", PrintOutput::STDOUT, PrintColor::STANDARD, PrintIntensity::BOLD);
 	highlighter.PrintText(display, PrintOutput::STDOUT, HighlightElementType::KEYWORD);
 	highlighter.PrintText(" [OPTION]... [FILENAME [SQL]]\n\n", PrintOutput::STDOUT,

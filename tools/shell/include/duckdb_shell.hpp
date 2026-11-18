@@ -13,8 +13,8 @@ namespace duckdb_shell {
 // no auto-connect. PSQL adds the connection options and auto-ATTACH
 // against a pg-wire endpoint on top of everything SHELL has.
 enum class ShellSubcommand : uint8_t {
-	SHELL, // `serened shell`
-	PSQL,  // `serened psql`
+	SHELL, // `serenedb shell`
+	PSQL,  // `serenedb psql`
 };
 
 struct ShellEngine {
