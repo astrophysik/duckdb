@@ -1,0 +1,51 @@
+# name: test/parquet/parquet_footer_thrift.test
+# description: Footers are decoded from the bytes they were read into: fields of any thrift type the reader does not know are skipped, malformed footers are refused within their bytes (files from test/parquet/generate_footer_test_files.py)
+# group: [parquet]
+
+require parquet
+
+query II
+SELECT * FROM '{DATA_DIR}/parquet-testing/footer_unknown_fields.parquet'
+----
+0	v0
+1	v1
+2	v2
+3	v3
+4	v4
+
+query II
+SELECT num_rows, num_row_groups FROM parquet_file_metadata('{DATA_DIR}/parquet-testing/footer_unknown_fields.parquet')
+----
+5	1
+
+# the footer lacks the stop of its struct - the footer length and the magic after it are not read as its fields
+statement error
+SELECT * FROM '{DATA_DIR}/parquet-testing/broken/footer_truncated.parquet'
+----
+No more data to read
+
+statement error
+SELECT * FROM '{DATA_DIR}/parquet-testing/broken/footer_varint_too_long.parquet'
+----
+Variable-length int over 10 bytes
+
+statement error
+SELECT * FROM '{DATA_DIR}/parquet-testing/broken/footer_negative_string_size.parquet'
+----
+Negative size
+
+statement error
+SELECT * FROM '{DATA_DIR}/parquet-testing/broken/footer_negative_list_size.parquet'
+----
+Negative size
+
+# a list has a byte for each of its elements at least - a longer one than the footer can hold is refused
+statement error
+SELECT * FROM '{DATA_DIR}/parquet-testing/broken/footer_list_too_long.parquet'
+----
+Exceeded size limit
+
+statement error
+SELECT * FROM '{DATA_DIR}/parquet-testing/broken/footer_unknown_type.parquet'
+----
+don't know what type: 13

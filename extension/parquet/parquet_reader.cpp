@@ -21,6 +21,7 @@
 #include "reader/variant_column_reader.hpp"
 #include "reader/struct_column_reader.hpp"
 #include "thrift_tools.hpp"
+#include "thrift_buffer_protocol.hpp"
 #include "parquet_prefetch_cost_model.hpp"
 #include "duckdb/common/encryption_state.hpp"
 #include "duckdb/common/helper.hpp"
@@ -364,7 +365,14 @@ LoadMetadata(ClientContext &context, Allocator &allocator, CachingFileHandle &fi
 		auto hash_util = context.db->GetMbedTLSUtil(false);
 		encryption_key_hash = ParquetFileMetadataCache::CreateEncryptionKeyHash(*encryption_config, *hash_util);
 	} else {
-		metadata->read(file_proto.get());
+		// the footer was read in one piece above - it is decoded where it lies
+		const auto footer_pos = file_size - (footer_len + 8);
+		auto read_head = transport.GetReadHead(footer_pos);
+		if (!read_head || !read_head->data_isset || footer_pos + footer_len > read_head->GetEnd()) {
+			throw InternalException("The footer of \"%s\" was not read in one piece", file_handle.GetPath());
+		}
+		ThriftBufferProtocol footer(read_head->buffer_ptr + (footer_pos - read_head->location), footer_len);
+		metadata->read(&footer);
 	}
 
 	if (metadata->num_rows < 0) {
