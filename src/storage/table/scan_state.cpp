@@ -26,35 +26,55 @@ void TableScanState::Initialize(vector<StorageIndex> column_ids_p, optional_ptr<
 		filters.Initialize(*context, *table_filters, column_ids);
 	}
 	if (table_sampling) {
-		sampling_info.do_system_sample = table_sampling->method == SampleMethod::SYSTEM_SAMPLE;
-		if (table_sampling->is_percentage) {
-			// Percentage-based system sampling
-			sampling_info.is_percentage = true;
-			sampling_info.sample_rate = table_sampling->sample_size.GetValue<double>() / 100.0;
-		} else {
-			// Row-count based system sampling: convert target row count to approximate rate.
-			// Prefer the pre-calculated sample_rate from the optimizer if available,
-			// otherwise derive from estimated_table_row_count.
-			sampling_info.is_percentage = false;
-			sampling_info.target_sample_rows = NumericCast<idx_t>(table_sampling->sample_size.GetValue<int64_t>());
-			if (table_sampling->sample_rate > 0) {
-				sampling_info.sample_rate = table_sampling->sample_rate;
-			} else if (estimated_table_row_count > 0) {
-				sampling_info.sample_rate = static_cast<double>(sampling_info.target_sample_rows) /
-				                            static_cast<double>(estimated_table_row_count);
-			} else {
-				// No estimate available, use a conservative rate
-				sampling_info.sample_rate = 1.0;
-			}
-			sampling_info.sample_rate = MinValue(1.0, MaxValue(0.0, sampling_info.sample_rate));
-			RandomEngine random(table_sampling->seed.IsValid() ? static_cast<int64_t>(table_sampling->seed.GetIndex())
-			                                                   : -1);
-			sampling_info.sample_phase = random.NextRandom();
-		}
+		sampling_info = ScanSamplingInfo::FromOptions(*table_sampling, estimated_table_row_count);
 		if (table_sampling->seed.IsValid()) {
 			table_state.random.SetSeed(table_sampling->seed.GetIndex());
 		}
 	}
+}
+
+ScanSamplingInfo ScanSamplingInfo::FromOptions(const SampleOptions &options, idx_t estimated_row_count) {
+	ScanSamplingInfo result;
+	result.do_system_sample = options.method == SampleMethod::SYSTEM_SAMPLE;
+	if (options.is_percentage) {
+		// Percentage-based system sampling
+		result.is_percentage = true;
+		result.sample_rate = options.sample_size.GetValue<double>() / 100.0;
+		return result;
+	}
+	// Row-count based system sampling: convert target row count to approximate rate.
+	// Prefer the pre-calculated sample_rate from the optimizer if available,
+	// otherwise derive from estimated_row_count.
+	result.is_percentage = false;
+	result.target_sample_rows = NumericCast<idx_t>(options.sample_size.GetValue<int64_t>());
+	if (options.sample_rate > 0) {
+		result.sample_rate = options.sample_rate;
+	} else if (estimated_row_count > 0) {
+		result.sample_rate = static_cast<double>(result.target_sample_rows) / static_cast<double>(estimated_row_count);
+	} else {
+		// No estimate available, use a conservative rate
+		result.sample_rate = 1.0;
+	}
+	result.sample_rate = MinValue(1.0, MaxValue(0.0, result.sample_rate));
+	RandomEngine random(options.seed.IsValid() ? static_cast<int64_t>(options.seed.GetIndex()) : -1);
+	result.sample_phase = random.NextRandom();
+	return result;
+}
+
+bool ScanSamplingInfo::KeepsRow(idx_t row_idx) const {
+	auto before = std::floor(LossyNumericCast<double>(row_idx) * sample_rate + sample_phase);
+	auto after = std::floor(LossyNumericCast<double>(row_idx + 1) * sample_rate + sample_phase);
+	return after > before;
+}
+
+idx_t ScanSamplingInfo::SelectRows(idx_t start_row, idx_t count, SelectionVector &sel) const {
+	idx_t result_count = 0;
+	for (idx_t i = 0; i < count; i++) {
+		if (KeepsRow(start_row + i)) {
+			sel.set_index(result_count++, i);
+		}
+	}
+	return result_count;
 }
 
 void TableScanState::ResetForReuse() {

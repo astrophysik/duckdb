@@ -18,6 +18,7 @@
 #include "duckdb/planner/expression.hpp"
 #include "duckdb/common/open_file_info.hpp"
 #include "duckdb/function/partition_stats.hpp"
+#include "duckdb/parser/parsed_data/sample_options.hpp"
 
 namespace duckdb {
 
@@ -70,6 +71,8 @@ public:
 	unique_ptr<DeleteFilter> deletion_filter;
 	//! Global identifiers (which column position of the projected output this filter operates) for the filters
 	vector<MultiFileGlobalIndex> filter_global_indices;
+	//! (Optionally) The TABLESAMPLE pushed into the scan, which the reader applies to the rows of the file
+	optional_ptr<SampleOptions> sample_options;
 
 public:
 	const vector<MultiFileColumnDefinition> &GetColumns() const {

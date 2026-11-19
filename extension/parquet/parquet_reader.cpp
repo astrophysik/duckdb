@@ -1839,6 +1839,13 @@ void ParquetReader::InitializeScan(ClientContext &context, ParquetReaderScanStat
 	state.filter_count = 0;
 	state.group_index = group_to_read;
 	state.sel.Initialize(STANDARD_VECTOR_SIZE);
+	if (sampling.do_system_sample) {
+		state.sample_sel.Initialize(STANDARD_VECTOR_SIZE);
+		if (sample_seed.IsValid() && !state.sample_random_seeded) {
+			state.sample_random.SetSeed(sample_seed.GetIndex());
+			state.sample_random_seeded = true;
+		}
+	}
 	if (!state.file_handle || state.file_handle->GetPath() != file_handle->GetPath()) {
 		state.prefetch_mode = ShouldAndCanPrefetch(context, *file_handle);
 		// all scan states share one handle (opened with parallel access), so open handles and
@@ -2368,6 +2375,31 @@ AsyncResult ParquetReader::Process(ClientContext &context, ParquetReaderScanStat
 	const bool log_prefetch =
 	    Logger::Get(context).ShouldLog(ParquetPrefetchLogType::NAME, ParquetPrefetchLogType::LEVEL);
 	const idx_t group_num_rows = GetGroup(state).num_rows;
+	auto &deletion_filter = this->deletion_filter;
+	const bool plain_scan = !filters && !deletion_filter && state.lookup_rows.empty();
+	idx_t sample_count = 0;
+	bool sample_selection = false;
+	if (sampling.do_system_sample && !state.resuming_payload) {
+		// the sample skips the vectors it does not keep without decoding them
+		while (state.offset_in_group < group_num_rows) {
+			const auto count = MinValue<idx_t>(STANDARD_VECTOR_SIZE, group_num_rows - state.offset_in_group);
+			if (sampling.is_percentage || !plain_scan) {
+				if (sampling.KeepsVector(state.sample_random)) {
+					break;
+				}
+			} else if (sampling.sample_rate >= 1) {
+				break;
+			} else {
+				sample_count = sampling.SelectRows(state.group_offset + state.offset_in_group, count, state.sample_sel);
+				if (sample_count != 0) {
+					sample_selection = true;
+					break;
+				}
+			}
+			SkipRows(state, count);
+			rows_read += count;
+		}
+	}
 	// Absolute file row of this chunk's first row, captured before offset_in_group advances below, so lookup
 	// consumers can derive each row's file position positionally instead of decoding a file_row_number column.
 	state.chunk_row_base = state.group_offset + state.offset_in_group;
@@ -2382,15 +2414,13 @@ AsyncResult ParquetReader::Process(ClientContext &context, ParquetReaderScanStat
 		return SourceResultType::FINISHED;
 	}
 
-	auto &deletion_filter = this->deletion_filter;
-
 	state.define_buf.zero();
 	state.repeat_buf.zero();
 
 	auto define_ptr = (uint8_t *)state.define_buf.ptr;
 	auto repeat_ptr = (uint8_t *)state.repeat_buf.ptr;
 
-	if (filters || deletion_filter || !state.lookup_rows.empty()) {
+	if (!plain_scan) {
 		auto res = ProcessFilters(state, result, scan_count, define_ptr, repeat_ptr, log_prefetch);
 		if (res.GetResultType() == AsyncResultType::BLOCKED) {
 			// we must wait  on the payload I/O
@@ -2412,6 +2442,9 @@ AsyncResult ParquetReader::Process(ClientContext &context, ParquetReaderScanStat
 				throw InvalidInputException("Mismatch in parquet read for column %llu, expected %llu rows, got %llu",
 				                            file_col_idx, scan_count, rows_read);
 			}
+		}
+		if (sample_selection) {
+			result.Slice(state.sample_sel, sample_count);
 		}
 	}
 

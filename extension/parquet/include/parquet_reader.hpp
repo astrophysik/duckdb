@@ -37,6 +37,8 @@
 #include "resizable_buffer.hpp"
 #include "duckdb/execution/adaptive_filter.hpp"
 #include "duckdb/common/column_index.hpp"
+#include "duckdb/common/random_engine.hpp"
+#include "duckdb/storage/table/scan_state.hpp"
 #include "duckdb/common/multi_file/multi_file_data.hpp"
 #include "duckdb/common/open_file_info.hpp"
 #include "duckdb/common/optional_idx.hpp"
@@ -221,6 +223,11 @@ public:
 	bool resuming_payload = false;
 	SelectionVector sel;
 	std::span<const sel_t> lookup_rows;
+	//! The random numbers of a percentage-based sample pushed into the scan, and the rows a row-count based one
+	//! keeps of the current chunk
+	RandomEngine sample_random {-1};
+	SelectionVector sample_sel;
+	bool sample_random_seeded = false;
 
 	ResizeableBuffer define_buf;
 	ResizeableBuffer repeat_buf;
@@ -368,6 +375,9 @@ public:
 	ParquetIntervalBloomFilterVersion interval_bloom_filter_version {};
 	//! Storage indices of columns where expressions like strlen/octet_length are pushed down
 	unordered_map<idx_t, ParquetReaderProjectionExpression> projection_expressions;
+	//! The TABLESAMPLE pushed into the scan, and the seed of its percentage-based random numbers
+	ScanSamplingInfo sampling;
+	optional_idx sample_seed;
 
 public:
 	string GetReaderType() const override {

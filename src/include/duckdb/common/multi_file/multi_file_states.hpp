@@ -216,6 +216,8 @@ struct MultiFileGlobalState : public GlobalTableFunctionState {
 	vector<LogicalType> scanned_types;
 	vector<ColumnIndex> column_indexes;
 	optional_ptr<TableFilterSet> filters;
+	//! The TABLESAMPLE pushed into the scan - each reader applies it to its file
+	optional_ptr<SampleOptions> sample_options;
 
 	unique_ptr<GlobalTableFunctionState> global_state;
 

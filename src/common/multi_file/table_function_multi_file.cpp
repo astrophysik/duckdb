@@ -209,6 +209,7 @@ TableFunctionInitInput TableFunctionFileReader::GetInitInput(TableFunctionFileIn
 	vector<idx_t> projection_ids;
 	TableFunctionInitInput input(bind_data.get(), column_indexes, projection_ids, filters.get());
 	input.op = scan_op;
+	input.sample_options = sample_options;
 	if (!virtual_columns.empty()) {
 		file_input.virtual_columns = virtual_columns;
 	}

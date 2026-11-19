@@ -239,6 +239,10 @@ static unique_ptr<GlobalTableFunctionState> ReadSingleParquetFileInitGlobal(Clie
 		// by the caller, which outlives this scan
 		reader.deletion_filter = make_uniq<BorrowedDeleteFilter>(*file_input.deletion_filter);
 	}
+	if (input.sample_options) {
+		reader.sampling = ScanSamplingInfo::FromOptions(*input.sample_options, reader.NumRows());
+		reader.sample_seed = input.sample_options->seed;
+	}
 	if (file_input.partitions) {
 		// our caller planned which row groups of the file are read, and in which order
 		for (auto row_group : *file_input.partitions) {

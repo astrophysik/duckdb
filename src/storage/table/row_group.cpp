@@ -680,24 +680,6 @@ void RowGroup::NextVector(CollectionScanState &state) {
 	}
 }
 
-static idx_t SystemRowsSelection(const ScanSamplingInfo &sampling_info, idx_t start_row, idx_t count,
-                                 SelectionVector &sel) {
-	auto rate = sampling_info.sample_rate;
-	if (rate >= 1) {
-		return count;
-	}
-	idx_t result_count = 0;
-	for (idx_t i = 0; i < count; i++) {
-		auto row_idx = start_row + i;
-		auto before = std::floor(LossyNumericCast<double>(row_idx) * rate + sampling_info.sample_phase);
-		auto after = std::floor(LossyNumericCast<double>(row_idx + 1) * rate + sampling_info.sample_phase);
-		if (after > before) {
-			sel.set_index(result_count++, i);
-		}
-	}
-	return result_count;
-}
-
 static idx_t IntersectSelections(const SelectionVector &left, idx_t left_count, const SelectionVector &right,
                                  idx_t right_count, SelectionVector &result) {
 	idx_t left_idx = 0;
@@ -965,8 +947,7 @@ bool RowGroup::PrepareScan(ScanOptions options, CollectionScanState &state) {
 				}
 				if (rate < 1) {
 					auto row_group_start = state.GetRowGroup()->GetRowStart();
-					sample_count =
-					    SystemRowsSelection(sampling_info, row_group_start + current_row, max_count, sample_sel);
+					sample_count = sampling_info.SelectRows(row_group_start + current_row, max_count, sample_sel);
 					if (sample_count == 0) {
 						NextVector(state);
 						continue;
@@ -975,7 +956,7 @@ bool RowGroup::PrepareScan(ScanOptions options, CollectionScanState &state) {
 				}
 			} else {
 				// percentage based system sampling
-				if (state.random.NextRandom() > sampling_info.sample_rate) {
+				if (!sampling_info.KeepsVector(state.random)) {
 					NextVector(state);
 					continue;
 				}

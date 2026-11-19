@@ -47,7 +47,8 @@ optional_ptr<LogicalGet> LogicalGet::TopNConsumer(LogicalOperator &input, idx_t 
 		return nullptr;
 	}
 	auto &get = source.get().Cast<LogicalGet>();
-	if (!get.function.consume_top_n || !get.bind_data) {
+	if (!get.function.consume_top_n || !get.bind_data || get.extra_info.sample_options) {
+		// the Top-N of a sample is taken from the sampled rows - a scan that samples cannot produce it
 		return nullptr;
 	}
 	return &get;
