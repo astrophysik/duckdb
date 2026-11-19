@@ -185,7 +185,7 @@ Invalid Configuration Error: Can not set path to '
 statement error
 CALL enable_logging(['QueryLog'], storage='file', storage_config={'path': '{TEMP_DIR}/logging_csv_log.csv', 'normalize': true});
 ----
-' while normalize is true. Normalize will make DuckDB write multiple log files to more efficiently store log entries. Please specify a directory path instead of a csv file path, or set normalize to false.
+' while normalize is true. Normalize writes multiple log files to more efficiently store log entries. Please specify a directory path instead of a csv file path, or set normalize to false.
 
 statement ok
 CALL truncate_duckdb_logs();

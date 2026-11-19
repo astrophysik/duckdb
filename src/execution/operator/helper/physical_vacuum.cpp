@@ -92,7 +92,7 @@ SinkFinalizeType PhysicalVacuum::Finalize(Pipeline &pipeline, Event &event, Clie
                                           OperatorSinkFinalizeInput &input) const {
 	auto &sink = input.global_state.Cast<VacuumGlobalSinkState>();
 	if (!table->IsDuckTable()) {
-		throw NotImplementedException("Vacuum is only implemented for DuckDB tables");
+		throw NotImplementedException("Vacuum is not implemented for tables of this database type");
 	}
 
 	auto tbl = table;

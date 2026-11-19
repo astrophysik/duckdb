@@ -329,10 +329,10 @@ static void ArrowToDuckDBMapVerify(const Vector &vector, idx_t count) {
 	case MapInvalidReason::VALID:
 		break;
 	case MapInvalidReason::DUPLICATE_KEY: {
-		throw InvalidInputException("Arrow map contains duplicate key, which isn't supported by DuckDB map type");
+		throw InvalidInputException("Arrow map contains duplicate key, which isn't supported by the MAP type");
 	}
 	case MapInvalidReason::NULL_KEY: {
-		throw InvalidInputException("Arrow map contains NULL as map key, which isn't supported by DuckDB map type");
+		throw InvalidInputException("Arrow map contains NULL as map key, which isn't supported by the MAP type");
 	}
 	default: {
 		throw InternalException("MapInvalidReason not implemented");
@@ -350,7 +350,7 @@ static void SetVectorString(Vector &vector, idx_t size, char *cdata, T *offsets)
 		auto cptr = cdata + offsets[row_idx];
 		auto str_len = offsets[row_idx + 1] - offsets[row_idx];
 		if (str_len > NumericLimits<uint32_t>::Maximum()) { // LCOV_EXCL_START
-			throw ConversionException("DuckDB does not support Strings over 4GB");
+			throw ConversionException("Strings over 4GB are not supported");
 		} // LCOV_EXCL_STOP
 		strings[row_idx] = string_t(cptr, UnsafeNumericCast<uint32_t>(str_len));
 	}
@@ -1316,7 +1316,7 @@ static void SetSelectionVectorLoopWithChecks(SelectionVector &sel, data_ptr_t in
 	auto indices = reinterpret_cast<T *>(indices_p);
 	for (idx_t row = 0; row < size; row++) {
 		if (indices[row] > NumericLimits<uint32_t>::Maximum()) {
-			throw ConversionException("DuckDB only supports indices that fit on an uint32");
+			throw ConversionException("Only indices that fit on an uint32 are supported");
 		}
 		sel.set_index(row, NumericCast<idx_t>(indices[row]));
 	}
@@ -1357,7 +1357,7 @@ static void SetSelectionVector(SelectionVector &sel, data_ptr_t indices_p, const
 		case LogicalTypeId::UINTEGER:
 			if (last_element_pos > NumericLimits<uint32_t>::Maximum()) {
 				//! Its guaranteed that our indices will point to the last element, so just throw an error
-				throw ConversionException("DuckDB only supports indices that fit on an uint32");
+				throw ConversionException("Only indices that fit on an uint32 are supported");
 			}
 			SetMaskedSelectionVectorLoop<uint32_t>(sel, indices_p, size, *mask, last_element_pos);
 			break;
@@ -1367,14 +1367,14 @@ static void SetSelectionVector(SelectionVector &sel, data_ptr_t indices_p, const
 		case LogicalTypeId::UBIGINT:
 			if (last_element_pos > NumericLimits<uint32_t>::Maximum()) {
 				//! Its guaranteed that our indices will point to the last element, so just throw an error
-				throw ConversionException("DuckDB only supports indices that fit on an uint32");
+				throw ConversionException("Only indices that fit on an uint32 are supported");
 			}
 			SetMaskedSelectionVectorLoop<uint64_t>(sel, indices_p, size, *mask, last_element_pos);
 			break;
 		case LogicalTypeId::BIGINT:
 			if (last_element_pos > NumericLimits<uint32_t>::Maximum()) {
 				//! Its guaranteed that our indices will point to the last element, so just throw an error
-				throw ConversionException("DuckDB only supports indices that fit on an uint32");
+				throw ConversionException("Only indices that fit on an uint32 are supported");
 			}
 			SetMaskedSelectionVectorLoop<int64_t>(sel, indices_p, size, *mask, last_element_pos);
 			break;

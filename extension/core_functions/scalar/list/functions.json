@@ -54,7 +54,7 @@
                     {"name": "end"}
                 ],
                 "description": "Extracts a sublist or substring using slice conventions. Negative values are accepted.",
-                "examples": ["list_slice([4, 5, 6], 2, 3)", "array_slice('DuckDB', 3, 4)", "array_slice('DuckDB', 3, NULL)", "array_slice('DuckDB', 0, -3)"],
+                "examples": ["list_slice([4, 5, 6], 2, 3)", "array_slice('abcdef', 3, 4)", "array_slice('abcdef', 3, NULL)", "array_slice('abcdef', 0, -3)"],
                 "categories": ["list", "string"]
             },
             {
@@ -111,7 +111,7 @@
     {
         "name": "list_filter",
         "parameters": "list,lambda",
-        "description": "Constructs a list from those elements of the input `list` for which the `lambda` function returns `true`. DuckDB must be able to cast the `lambda` function's return type to `BOOL`. The return type of `list_filter` is the same as the input list's.",
+        "description": "Constructs a list from those elements of the input `list` for which the `lambda` function returns `true`. The `lambda` function's return type must be castable to `BOOL`. The return type of `list_filter` is the same as the input list's.",
         "example": "list_filter([3, 4, 5], lambda x : x > 4)",
         "categories": ["list", "lambda"],
         "type": "scalar_function",

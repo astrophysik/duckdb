@@ -80,7 +80,7 @@
                     {"name": "index", "type": "ANY"}
                 ],
                 "description": "Extracts a single character from a `string` using a (1-based) `index`.",
-                "example": "array_extract('DuckDB', 2)",
+                "example": "array_extract('abcdef', 2)",
                 "categories": ["string"]
             },
             {

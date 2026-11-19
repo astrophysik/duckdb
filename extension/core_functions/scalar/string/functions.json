@@ -57,7 +57,7 @@
         "name": "damerau_levenshtein",
         "parameters": "s1,s2",
         "description": "Extension of Levenshtein distance to also include transposition of adjacent characters as an allowed edit operation. In other words, the minimum number of edit operations (insertions, deletions, substitutions or transpositions) required to change one string to another. Characters of different cases (e.g., `a` and `A`) are considered different.",
-        "example": "damerau_levenshtein('duckdb', 'udckbd')",
+        "example": "damerau_levenshtein('hello', 'ehllo')",
         "categories": ["text_similarity"],
         "type": "scalar_function"
     },
@@ -200,7 +200,7 @@
         "name": "jaro_similarity",
         "parameters": "s1,s2,score_cutoff",
         "description": "The Jaro similarity between two strings. Characters of different cases (e.g., `a` and `A`) are considered different. Returns a number between 0 and 1. For similarity < `score_cutoff`, 0 is returned instead. `score_cutoff` defaults to 0.",
-        "example": "jaro_similarity('duck', 'duckdb')",
+        "example": "jaro_similarity('fox', 'foxes')",
         "categories": ["text_similarity"],
         "type": "scalar_function_set"
     },
@@ -208,7 +208,7 @@
         "name": "jaro_winkler_similarity",
         "parameters": "s1,s2,score_cutoff",
         "description": "The Jaro-Winkler similarity between two strings. Characters of different cases (e.g., `a` and `A`) are considered different. Returns a number between 0 and 1. For similarity < `score_cutoff`, 0 is returned instead. `score_cutoff` defaults to 0.",
-        "example": "jaro_winkler_similarity('duck', 'duckdb')",
+        "example": "jaro_winkler_similarity('fox', 'foxes')",
         "categories": ["text_similarity"],
         "type": "scalar_function_set"
     },
@@ -450,7 +450,7 @@
         "name": "url_decode",
         "parameters": "string",
         "description": "Decodes a URL from a representation using Percent-Encoding.",
-        "example": "url_decode('https%3A%2F%2Fduckdb.org%2Fwhy_duckdb%23portable')",
+        "example": "url_decode('https%3A%2F%2Fexample.com%2Fdocs%23intro')",
         "categories": ["string"],
         "type": "scalar_function"
     }

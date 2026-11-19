@@ -320,7 +320,7 @@ static void InitializeFunctionPointers(ArrowAppendData &append_data, const Logic
 		InitializeAppenderForType<ArrowMapData<int32_t>>(append_data);
 		break;
 	default:
-		throw NotImplementedException("Unsupported type in DuckDB -> Arrow Conversion: %s\n", type.ToString());
+		throw NotImplementedException("Unsupported type in Arrow Conversion: %s\n", type.ToString());
 	}
 }
 

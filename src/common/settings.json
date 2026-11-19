@@ -126,7 +126,7 @@
     },
     {
         "name": "arrow_lossless_conversion",
-        "description": "Whenever a DuckDB type does not have a clear native or canonical extension match in Arrow, export the types with a duckdb.type_name extension name.",
+        "description": "Whenever a type does not have a clear native or canonical extension match in Arrow, export the types with a duckdb.type_name extension name.",
         "type": "BOOLEAN",
         "default_scope": "global",
         "default_value": "false"
@@ -141,7 +141,7 @@
     },
     {
         "name": "arrow_output_version",
-        "description": "Whether strings should be produced by DuckDB in Utf8View format instead of Utf8.",
+        "description": "Whether strings should be produced in Utf8View format instead of Utf8.",
         "type": "ENUM<ArrowFormatVersion>",
         "default_scope": "global",
         "default_value": "1.0"
@@ -266,7 +266,7 @@
     },
     {
         "name": "custom_user_agent",
-        "description": "HTTP request metadata that can be set by callers/wrappers to tag their own traffic when DuckDB makes a request.",
+        "description": "HTTP request metadata that can be set by callers/wrappers to tag their own traffic in the requests the database makes.",
         "type": "VARCHAR",
         "scope": "global",
         "custom_implementation": [
@@ -676,7 +676,7 @@
     },
     {
         "name": "disable_database_invalidation",
-        "description": "Disables invalidating the database instance when encountering a fatal error. Should be used with great care, as DuckDB cannot guarantee correct behavior after a fatal error.",
+        "description": "Disables invalidating the database instance when encountering a fatal error. Should be used with great care, as correct behavior cannot be guaranteed after a fatal error.",
         "type": "BOOLEAN",
         "scope": "global",
         "default_value": "false",
@@ -960,7 +960,7 @@
     },
     {
         "name": "external_threads",
-        "description": "The number of external threads that work on DuckDB tasks.",
+        "description": "The number of external threads that work on the database's tasks.",
         "type": "UBIGINT",
         "scope": "global",
         "default_value": "1",
@@ -1159,7 +1159,7 @@
     },
     {
         "name": "legacy_disable_null_type",
-        "description": "When enabled, prevent the NULL type from leaving the binder. This was the default behavior prior to DuckDB v2.0.",
+        "description": "When enabled, prevent the NULL type from leaving the binder.",
         "type": "BOOLEAN",
         "default_scope": "local",
         "default_value": "false",
@@ -1499,7 +1499,7 @@
     },
     {
         "name": "storage_compatibility_version",
-        "description": "Sets the DuckDB version for which data is serialized to the DuckDB file during checkpointing. Can differ from the version of the DuckDB instance.",
+        "description": "Sets the DuckDB version for which data is serialized to the DuckDB file during checkpointing. Can differ from the version of the running database.",
         "type": "VARCHAR",
         "scope": "global",
         "custom_implementation": true
