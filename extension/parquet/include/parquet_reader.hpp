@@ -253,10 +253,12 @@ public:
 	optional_ptr<const PhysicalOperator> op;
 
 	//! Per-thread counters for row groups whose data was read / skipped, incremented as row groups are processed.
-	//! Read in ParquetScanGetMetrics and surfaced as the standard row_groups_scanned / total_row_groups_to_scan
-	//! profiling metrics (the profiler sums them across threads).
+	//! Surfaced as the standard total_row_groups_to_scan profiling metric (the profiler sums them across threads).
 	idx_t row_groups_read = 0;
 	idx_t row_groups_skipped = 0;
+	//! Row groups whose decoding started, surfaced as row_groups_scanned - a row group whose data was read can still be
+	//! skipped before its decoding (DynamicFiltersExclude)
+	idx_t row_groups_decoded = 0;
 
 	//! Prefetch cost model
 	PrefetchCostModelState cost_model_state;
@@ -481,6 +483,12 @@ private:
 	//! Group span is the distance between the min page offset and the max page offset plus the max page compressed size
 	uint64_t GetGroupSpan(ParquetReaderScanState &state);
 	void PrepareRowGroupBuffer(ClientContext &context, ParquetReaderScanState &state, idx_t out_col_idx);
+	//! What the statistics of a column in the row group being scanned say about its filter
+	FilterPropagateResult CheckRowGroupStatistics(ParquetReaderScanState &state, ColumnReader &column_reader,
+	                                              ParquetScanFilter &scan_filter);
+	//! Whether the bounds of the dynamic filters rule out the row group being scanned. They tighten while the scan
+	//! runs, after the reads of a row group were scheduled - well before its decoding, when it was read ahead
+	bool DynamicFiltersExclude(ParquetReaderScanState &state);
 	//! Whole-group prefetch strategy.
 	ParquetPrefetchStrategy WholeGroupPrefetch(ParquetReaderScanState &state, ThriftFileTransport &trans,
 	                                           const duckdb_parquet::RowGroup &group, uint64_t total_row_group_span,

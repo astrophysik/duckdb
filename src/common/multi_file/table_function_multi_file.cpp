@@ -324,7 +324,7 @@ AsyncResult TableFunctionFileReader::ScheduleIO(ClientContext &context, GlobalTa
 	return result;
 }
 
-AsyncResult TableFunctionFileReader::Scan(ClientContext &context, GlobalTableFunctionState &,
+AsyncResult TableFunctionFileReader::Scan(ClientContext &context, GlobalTableFunctionState &gstate,
                                           LocalTableFunctionState &lstate_p, DataChunk &chunk) {
 	auto &lstate = lstate_p.Cast<TableFunctionMultiFileLocalState>();
 	TableFunctionInput input(bind_data.get(), lstate.local_state.get(), global_state.get());
@@ -332,10 +332,14 @@ AsyncResult TableFunctionFileReader::Scan(ClientContext &context, GlobalTableFun
 	input.async_result = AsyncResultType::IMPLICIT;
 	input.results_execution_mode = AsyncResultsExecutionMode::SYNCHRONOUS;
 	function.function(context, input, chunk);
-	if (chunk.size() == 0 && !settings.claim_batch) {
-		// an empty chunk signals the end of the scan for this thread - when the function scans in batches it only
-		// signals the end of the current batch, and the next batch is claimed by TryInitializeScan
-		exhausted = true;
+	if (chunk.size() == 0) {
+		// the file may already have been finished while this batch was decoded - collect what decoding it counted
+		CollectMetrics(context, gstate);
+		if (!settings.claim_batch) {
+			// an empty chunk signals the end of the scan for this thread - when the function scans in batches it
+			// only signals the end of the current batch, and the next batch is claimed by TryInitializeScan
+			exhausted = true;
+		}
 	}
 	return AsyncResult::FromChunk(chunk);
 }

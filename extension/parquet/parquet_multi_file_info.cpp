@@ -775,7 +775,6 @@ AsyncResult ParquetReader::ScheduleIO(ClientContext &context, GlobalTableFunctio
 	auto strategy = RegisterRowGroupReads(context, scan_state);
 	auto read = scan_state.row_groups_read - read_before;
 	auto skipped = scan_state.row_groups_skipped - skipped_before;
-	gstate.row_groups_scanned_unreported += read;
 	gstate.total_row_groups_to_scan += read + skipped;
 	return ScheduleRowGroupReads(scan_state, strategy);
 }
@@ -795,8 +794,14 @@ AsyncResult ParquetReader::Scan(ClientContext &context, GlobalTableFunctionState
 		}
 	}
 #endif
-	auto &local_state = local_state_p.Cast<ParquetReadLocalState>();
-	return Process(context, local_state.scan_state, chunk);
+	auto &gstate = gstate_p.Cast<ParquetReadGlobalState>();
+	auto &scan_state = local_state_p.Cast<ParquetReadLocalState>().scan_state;
+	const auto decoded_before = scan_state.row_groups_decoded;
+	auto result = Process(context, scan_state, chunk);
+	if (scan_state.row_groups_decoded != decoded_before) {
+		gstate.row_groups_scanned_unreported += scan_state.row_groups_decoded - decoded_before;
+	}
+	return result;
 }
 
 unique_ptr<MultiFileReaderInterface> ParquetMultiFileInfo::Copy() {

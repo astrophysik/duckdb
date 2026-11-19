@@ -1701,6 +1701,56 @@ optional_ptr<ParquetScanFilter> ParquetReaderScanState::GetScanFilter(idx_t colu
 	return scan_filters[column_scan_filters[column].GetIndex()];
 }
 
+FilterPropagateResult ParquetReader::CheckRowGroupStatistics(ParquetReaderScanState &state, ColumnReader &column_reader,
+                                                             ParquetScanFilter &scan_filter) {
+	auto &group = GetGroup(state);
+	auto &filter = scan_filter.filter;
+	auto &filter_state = *scan_filter.filter_state;
+	auto schema_column_index = column_reader.ColumnIndex();
+	bool is_generated_column = schema_column_index >= group.columns.size();
+	bool is_expression = column_reader.Schema().schema_type == ParquetColumnSchemaType::EXPRESSION;
+	auto stats = column_reader.Stats(state.group_index, group.columns);
+	if (!stats) {
+		return FilterPropagateResult::NO_PRUNING_POSSIBLE;
+	}
+	bool has_min_max = false;
+	if (!is_generated_column) {
+		has_min_max = group.columns[schema_column_index].meta_data.statistics.__isset.min_value &&
+		              group.columns[schema_column_index].meta_data.statistics.__isset.max_value;
+	}
+	if (!is_expression && !is_generated_column && has_min_max &&
+	    (column_reader.Type().id() == LogicalTypeId::FLOAT || column_reader.Type().id() == LogicalTypeId::DOUBLE) &&
+	    ParquetStatisticsUtils::CanHaveNaN(group.columns[schema_column_index].meta_data.statistics,
+	                                       parquet_options.can_have_nan)) {
+		// floating point columns can have NaN values in addition to the min/max bounds defined in the file
+		// in order to do optimal pruning - we prune based on the [min, max] of the file followed by pruning
+		// based on nan
+		return CheckParquetFloatFilter(column_reader, group.columns[schema_column_index].meta_data.statistics, filter,
+		                               filter_state);
+	}
+	auto &expr_filter = ExpressionFilter::GetExpressionFilter(filter, "ParquetReader::CheckRowGroupStatistics");
+	return expr_filter.CheckStatistics(*stats, filter_state);
+}
+
+bool ParquetReader::DynamicFiltersExclude(ParquetReaderScanState &state) {
+	if (!filters || !state.lookup_rows.empty()) {
+		return false;
+	}
+	for (idx_t i = 0; i < column_ids.size(); i++) {
+		auto col_idx = MultiFileLocalIndex(i);
+		auto scan_filter = state.GetScanFilter(col_idx);
+		if (!scan_filter || !ExpressionFilter::GetOptionalDynamicFilterData(scan_filter->filter)) {
+			continue;
+		}
+		auto prune_result = CheckRowGroupStatistics(state, state.GetColumnReader(col_idx), *scan_filter);
+		if (prune_result == FilterPropagateResult::FILTER_ALWAYS_FALSE ||
+		    prune_result == FilterPropagateResult::FILTER_FALSE_OR_NULL) {
+			return true;
+		}
+	}
+	return false;
+}
+
 void ParquetReader::PrepareRowGroupBuffer(ClientContext &context, ParquetReaderScanState &state, idx_t i) {
 	auto &group = GetGroup(state);
 	auto col_idx = MultiFileLocalIndex(i);
@@ -1724,35 +1774,7 @@ void ParquetReader::PrepareRowGroupBuffer(ClientContext &context, ParquetReaderS
 		auto scan_filter = state.GetScanFilter(col_idx);
 		if (scan_filter) {
 			auto &filter = scan_filter->filter;
-			auto &filter_state = *scan_filter->filter_state;
-
-			auto schema_column_index = column_reader.ColumnIndex();
-			auto prune_result = FilterPropagateResult::NO_PRUNING_POSSIBLE;
-			bool is_generated_column = schema_column_index >= group.columns.size();
-			bool is_expression = column_reader.Schema().schema_type == ParquetColumnSchemaType::EXPRESSION;
-			auto stats = column_reader.Stats(state.group_index, group.columns);
-			if (stats) {
-				bool has_min_max = false;
-				if (!is_generated_column) {
-					has_min_max = group.columns[schema_column_index].meta_data.statistics.__isset.min_value &&
-					              group.columns[schema_column_index].meta_data.statistics.__isset.max_value;
-				}
-				if (!is_expression && !is_generated_column && has_min_max &&
-				    (column_reader.Type().id() == LogicalTypeId::FLOAT ||
-				     column_reader.Type().id() == LogicalTypeId::DOUBLE) &&
-				    ParquetStatisticsUtils::CanHaveNaN(group.columns[schema_column_index].meta_data.statistics,
-				                                       parquet_options.can_have_nan)) {
-					// floating point columns can have NaN values in addition to the min/max bounds defined in the file
-					// in order to do optimal pruning - we prune based on the [min, max] of the file followed by pruning
-					// based on nan
-					prune_result = CheckParquetFloatFilter(
-					    column_reader, group.columns[schema_column_index].meta_data.statistics, filter, filter_state);
-				} else {
-					auto &expr_filter =
-					    ExpressionFilter::GetExpressionFilter(filter, "ParquetReader::PrepareRowGroupBuffer");
-					prune_result = expr_filter.CheckStatistics(*stats, filter_state);
-				}
-			}
+			auto prune_result = CheckRowGroupStatistics(state, column_reader, *scan_filter);
 			// check the bloom filter if present
 			auto bloom_source = TryGetBloomFilterSource(column_reader);
 			if (bloom_source) {
@@ -2385,6 +2407,15 @@ AsyncResult ParquetReader::Process(ClientContext &context, ParquetReaderScanStat
 	const idx_t group_num_rows = GetGroup(state).num_rows;
 	auto &deletion_filter = this->deletion_filter;
 	const bool plain_scan = !filters && !deletion_filter && state.lookup_rows.empty();
+	if (state.offset_in_group == 0 && group_num_rows != 0 && !state.resuming_payload) {
+		if (DynamicFiltersExclude(state)) {
+			// count the skipped rows towards the progress, as PrepareRowGroupBuffer does
+			rows_read += group_num_rows;
+			state.offset_in_group = group_num_rows;
+		} else {
+			state.row_groups_decoded++;
+		}
+	}
 	idx_t sample_count = 0;
 	bool sample_selection = false;
 	if (sampling.do_system_sample && !state.resuming_payload) {

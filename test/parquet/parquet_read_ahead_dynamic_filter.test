@@ -1,0 +1,58 @@
+# name: test/parquet/parquet_read_ahead_dynamic_filter.test
+# description: A row group read ahead is checked against the dynamic filters again when it is decoded - their bounds tightened after its reads were scheduled
+# group: [parquet]
+
+require parquet
+
+statement ok
+SET threads = 1
+
+# the reads of every row group are scheduled before the first one is decoded
+statement ok
+SET read_ahead_depth = 16
+
+statement ok
+SET async_threads = 1
+
+statement ok
+COPY (SELECT i AS x, CASE WHEN i % 7 = 0 THEN 'skip' ELSE 'keep' END AS y FROM range(0, 16384) t(i)) TO '__TEST_DIR__/read_ahead_a.parquet' (ROW_GROUP_SIZE 2048)
+
+statement ok
+COPY (SELECT i AS x, CASE WHEN i % 7 = 0 THEN 'skip' ELSE 'keep' END AS y FROM range(16384, 32768) t(i)) TO '__TEST_DIR__/read_ahead_b.parquet' (ROW_GROUP_SIZE 2048)
+
+query I
+SELECT x FROM read_parquet('__TEST_DIR__/read_ahead_a.parquet') WHERE y <> 'skip' ORDER BY x LIMIT 3
+----
+1
+2
+3
+
+# the bound of the Top-N after the first row group rules out the statistics of the others
+query II
+EXPLAIN ANALYZE SELECT x FROM read_parquet('__TEST_DIR__/read_ahead_a.parquet') WHERE y <> 'skip' ORDER BY x LIMIT 3
+----
+analyzed_plan	<REGEX>:.*Row Groups Scanned: 1 / 8.*
+
+query I
+SELECT x FROM read_parquet('__TEST_DIR__/read_ahead_a.parquet') WHERE y <> 'skip' ORDER BY x DESC LIMIT 3
+----
+16383
+16382
+16381
+
+query II
+EXPLAIN ANALYZE SELECT x FROM read_parquet('__TEST_DIR__/read_ahead_a.parquet') WHERE y <> 'skip' ORDER BY x DESC LIMIT 3
+----
+analyzed_plan	<REGEX>:.*Row Groups Scanned: 1 / 8.*
+
+query I
+SELECT x FROM read_parquet(['__TEST_DIR__/read_ahead_a.parquet', '__TEST_DIR__/read_ahead_b.parquet']) WHERE y <> 'skip' ORDER BY x LIMIT 3
+----
+1
+2
+3
+
+query II
+EXPLAIN ANALYZE SELECT x FROM read_parquet(['__TEST_DIR__/read_ahead_a.parquet', '__TEST_DIR__/read_ahead_b.parquet']) WHERE y <> 'skip' ORDER BY x LIMIT 3
+----
+analyzed_plan	<REGEX>:.*Row Groups Scanned: 1 / 16.*
