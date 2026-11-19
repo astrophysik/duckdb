@@ -259,11 +259,20 @@ RowGroupOrderKey RowGroupOrderKeys::Get(const Value &value, OrderType order_type
 		return Null(null_order);
 	}
 	auto key = RowGroupOrderKey();
-	VisitPhysicalType(value.type().InternalType(), [&]<class T>() {
-		const auto data = value.GetValueUnsafe<T>();
-		CreateSortKeyHelpers::CreateSortKey(value.type(), const_data_ptr_cast(&data),
-		                                    OrderModifiers(order_type, null_order), data_ptr_cast(&key.part0));
-	});
+	const OrderModifiers modifiers(order_type, null_order);
+	if (value.type().InternalType() == PhysicalType::VARCHAR) {
+		// the key of a string holds its prefix, like the keys of string statistics do
+		auto &str = StringValue::Get(value);
+		const string_t prefix(str.data(), UnsafeNumericCast<uint32_t>(MinValue<idx_t>(str.size(), STRING_PREFIX_SIZE)));
+		CreateSortKeyHelpers::CreateSortKey(value.type(), const_data_ptr_cast(&prefix), modifiers,
+		                                    data_ptr_cast(&key.part0));
+	} else {
+		VisitPhysicalType(value.type().InternalType(), [&]<class T>() {
+			const auto data = value.GetValueUnsafe<T>();
+			CreateSortKeyHelpers::CreateSortKey(value.type(), const_data_ptr_cast(&data), modifiers,
+			                                    data_ptr_cast(&key.part0));
+		});
+	}
 	key.ByteSwap();
 	return key;
 }
