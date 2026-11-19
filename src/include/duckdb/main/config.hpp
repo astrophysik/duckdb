@@ -139,6 +139,7 @@ struct DBConfigOptions {
 	string system_object_prefix = "duckdb_";
 	string product_name = "DuckDB";
 	string product_version;
+	string product_source_id;
 	//! Enable mbedtls explicitly (overrides OpenSSL if available)
 	bool force_mbedtls = false;
 	//! Attached database names compare case-sensitively

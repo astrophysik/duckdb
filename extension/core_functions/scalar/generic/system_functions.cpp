@@ -172,7 +172,8 @@ void TransactionIdCurrent(DataChunk &input, ExpressionState &state, Vector &resu
 
 // version
 void VersionFunction(DataChunk &input, ExpressionState &state, Vector &result) {
-	auto val = Value(DuckDB::LibraryVersion());
+	auto &product_version = DBConfig::GetConfig(state.GetContext()).options.product_version;
+	auto val = Value(product_version.empty() ? string(DuckDB::LibraryVersion()) : product_version);
 	result.Reference(val, count_t(input.size()));
 }
 

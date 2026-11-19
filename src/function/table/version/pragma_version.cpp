@@ -1,4 +1,5 @@
 #include "duckdb/function/table/system_functions.hpp"
+#include "duckdb/main/config.hpp"
 #include "duckdb/main/database.hpp"
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/common/platform.hpp"
@@ -35,9 +36,16 @@ static void PragmaVersionFunction(ClientContext &context, TableFunctionInput &da
 		// finished returning values
 		return;
 	}
-	output.data[0].Append(Value(DuckDB::LibraryVersion()));
-	output.data[1].Append(Value(DuckDB::SourceID()));
-	output.data[2].Append(Value(DuckDB::ReleaseCodename()));
+	auto &options = DBConfig::GetConfig(context).options;
+	if (options.product_version.empty()) {
+		output.data[0].Append(Value(DuckDB::LibraryVersion()));
+		output.data[1].Append(Value(DuckDB::SourceID()));
+		output.data[2].Append(Value(DuckDB::ReleaseCodename()));
+	} else {
+		output.data[0].Append(Value(options.product_version));
+		output.data[1].Append(options.product_source_id.empty() ? Value() : Value(options.product_source_id));
+		output.data[2].Append(Value());
+	}
 
 	data.finished = true;
 }

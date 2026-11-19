@@ -154,13 +154,29 @@ TEST_CASE("Log files take the system object prefix", "[api][system_object_prefix
 	REQUIRE(CHECK_COLUMN(result, 0, {0}));
 }
 
-TEST_CASE("The user agent names the configured product", "[api][system_object_prefix]") {
+TEST_CASE("The user agent and the version name the configured product", "[api][system_object_prefix]") {
 	auto config = GetTestConfig();
 	config->options.product_name = "SereneDB";
 	config->options.product_version = "26.11.0";
+	config->options.product_source_id = "3f9c2a7d41";
 	DuckDB db(nullptr, config.get());
 	Connection con(db);
-	auto result = con.Query("PRAGMA user_agent");
-	REQUIRE_NO_FAIL(*result);
-	REQUIRE(StringUtil::StartsWith(result->GetValue(0, 0).ToString(), "serenedb/26.11.0("));
+	auto result = con.Query("SELECT starts_with(user_agent, 'serenedb/26.11.0(') FROM pragma_user_agent()");
+	REQUIRE(CHECK_COLUMN(result, 0, {true}));
+	result = con.Query("SELECT library_version, source_id, codename FROM pragma_version()");
+	REQUIRE(CHECK_COLUMN(result, 0, {"26.11.0"}));
+	REQUIRE(CHECK_COLUMN(result, 1, {"3f9c2a7d41"}));
+	REQUIRE(CHECK_COLUMN(result, 2, {Value()}));
+	result = con.Query("SELECT version()");
+	REQUIRE(CHECK_COLUMN(result, 0, {"26.11.0"}));
+}
+
+TEST_CASE("Without a configured product the version is the library's", "[api][system_object_prefix]") {
+	DuckDB db(nullptr);
+	Connection con(db);
+	auto result = con.Query("SELECT library_version = version(), source_id IS NOT NULL, codename IS NOT NULL "
+	                        "FROM pragma_version()");
+	REQUIRE(CHECK_COLUMN(result, 0, {true}));
+	REQUIRE(CHECK_COLUMN(result, 1, {true}));
+	REQUIRE(CHECK_COLUMN(result, 2, {true}));
 }
