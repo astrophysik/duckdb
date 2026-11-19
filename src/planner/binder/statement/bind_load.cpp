@@ -1,6 +1,7 @@
 #include "duckdb/parser/statement/load_statement.hpp"
 #include "duckdb/planner/binder.hpp"
 #include "duckdb/planner/operator/logical_load.hpp"
+#include "duckdb/main/config.hpp"
 #include "duckdb/main/database.hpp"
 #include "duckdb/main/extension_helper.hpp"
 #include "duckdb/main/extension_install_info.hpp"
@@ -11,7 +12,15 @@ namespace duckdb {
 
 BoundStatement Binder::Bind(LoadStatement &stmt) {
 	auto load_type = stmt.info->load_type;
-	if (load_type != LoadType::CREATE_REPOSITORY && load_type != LoadType::DROP_REPOSITORY) {
+	const bool is_repository = load_type == LoadType::CREATE_REPOSITORY || load_type == LoadType::DROP_REPOSITORY;
+	if (is_repository && !DBConfig::GetConfig(context).options.manage_extensions) {
+		throw NotImplementedException(
+		    "%s EXTENSION REPOSITORY is not supported by SereneDB: extensions are compiled into the server binary and "
+		    "cannot be installed at runtime.\nIf you are missing an extension, tell us in "
+		    "https://github.com/serenedb/serenedb/issues/887.",
+		    load_type == LoadType::CREATE_REPOSITORY ? "CREATE" : "DROP");
+	}
+	if (!is_repository) {
 		const bool is_install = load_type == LoadType::INSTALL || load_type == LoadType::FORCE_INSTALL;
 		const auto extension_name = ExtensionHelper::GetExtensionName(stmt.info->filename);
 

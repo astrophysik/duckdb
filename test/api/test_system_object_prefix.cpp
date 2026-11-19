@@ -174,6 +174,23 @@ TEST_CASE("The user agent and the version name the configured product", "[api][s
 	REQUIRE(CHECK_COLUMN(result, 0, {"26.11.0"}));
 }
 
+TEST_CASE("An application can turn extension management off", "[api][system_object_prefix]") {
+	auto config = GetTestConfig();
+	config->options.manage_extensions = false;
+	DuckDB db(nullptr, config.get());
+	Connection con(db);
+	REQUIRE_FAIL(con.Query("SELECT * FROM duckdb_extensions()"));
+	REQUIRE_FAIL(con.Query("SELECT * FROM duckdb_extension_repositories()"));
+	REQUIRE_FAIL(con.Query("PRAGMA extension_versions"));
+	auto result = con.Query("CREATE EXTENSION REPOSITORY my_repo PREFIX 'https://example.com'");
+	REQUIRE(result->HasError());
+	REQUIRE(StringUtil::Contains(result->GetError(), "CREATE EXTENSION REPOSITORY is not supported"));
+	result = con.Query("DROP EXTENSION REPOSITORY my_repo");
+	REQUIRE(result->HasError());
+	REQUIRE(StringUtil::Contains(result->GetError(), "DROP EXTENSION REPOSITORY is not supported"));
+	REQUIRE_NO_FAIL(con.Query("SELECT * FROM duckdb_functions()"));
+}
+
 TEST_CASE("Without a configured product the version is the library's", "[api][system_object_prefix]") {
 	DuckDB db(nullptr);
 	Connection con(db);

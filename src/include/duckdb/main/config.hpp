@@ -140,6 +140,7 @@ struct DBConfigOptions {
 	string product_name = "DuckDB";
 	string product_version;
 	string product_source_id;
+	bool manage_extensions = true;
 	//! Enable mbedtls explicitly (overrides OpenSSL if available)
 	bool force_mbedtls = false;
 	//! Attached database names compare case-sensitively

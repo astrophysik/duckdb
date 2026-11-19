@@ -28,6 +28,10 @@ Identifier BuiltinFunctions::SystemObjectName(std::string_view name) const {
 	return Identifier(DBConfig::GetConfig(catalog.GetDatabase()).SystemObjectName(name));
 }
 
+bool BuiltinFunctions::ManagesExtensions() const {
+	return DBConfig::GetConfig(catalog.GetDatabase()).options.manage_extensions;
+}
+
 static void AsBuiltin(Catalog &catalog, CreateInfo &info) {
 	info.internal = true;
 	auto &name = info.GetQualifiedName();

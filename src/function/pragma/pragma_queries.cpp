@@ -237,7 +237,9 @@ void PragmaQueries::RegisterFunction(BuiltinFunctions &set) {
 	set.AddFunction(PragmaFunction::PragmaCall(
 	    "show", PragmaShow, FunctionSignature().AddPositionalOnly("table_name", LogicalType::VARCHAR)));
 	set.AddFunction(PragmaFunction::PragmaStatement("version", PragmaVersion));
-	set.AddFunction(PragmaFunction::PragmaStatement("extension_versions", PragmaExtensionVersions));
+	if (set.ManagesExtensions()) {
+		set.AddFunction(PragmaFunction::PragmaStatement("extension_versions", PragmaExtensionVersions));
+	}
 	set.AddFunction(PragmaFunction::PragmaStatement("platform", PragmaPlatform));
 	set.AddFunction(PragmaFunction::PragmaStatement("database_size", PragmaDatabaseSize));
 	set.AddFunction(PragmaFunction::PragmaStatement("functions", PragmaFunctionsQuery));

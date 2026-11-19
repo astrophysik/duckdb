@@ -23,6 +23,7 @@ public:
 	void Initialize();
 
 	Identifier SystemObjectName(std::string_view name) const;
+	bool ManagesExtensions() const;
 
 public:
 	void AddFunction(AggregateFunctionSet set);

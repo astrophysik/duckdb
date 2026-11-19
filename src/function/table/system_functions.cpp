@@ -121,8 +121,10 @@ void BuiltinFunctions::RegisterSQLiteFunctions() {
 	DuckDBIndexesFun::RegisterFunction(*this);
 	DuckDBSchemasFun::RegisterFunction(*this);
 	DuckDBDependenciesFun::RegisterFunction(*this);
-	DuckDBExtensionsFun::RegisterFunction(*this);
-	DuckDBExtensionRepositoriesFun::RegisterFunction(*this);
+	if (ManagesExtensions()) {
+		DuckDBExtensionsFun::RegisterFunction(*this);
+		DuckDBExtensionRepositoriesFun::RegisterFunction(*this);
+	}
 	RegisterExternalResourceTypeFun::RegisterFunction(*this);
 	CreateExternalResourceFun::RegisterFunction(*this);
 	DestroyExternalResourceFun::RegisterFunction(*this);
