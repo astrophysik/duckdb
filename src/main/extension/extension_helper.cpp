@@ -167,7 +167,7 @@ string ExtensionHelper::ExtensionRuntimeUnsupportedMessage(const string &extensi
 	const string verb = is_install ? "installed" : "loaded";
 	return action + " is not supported by SereneDB: extensions are compiled into the server binary and cannot be " +
 	       verb + " at runtime.\nIf you need the \"" + extension_name +
-	       "\" extension, please open an issue at https://github.com/serenedb/serenedb/issues/887.";
+	       "\" extension, tell us in https://github.com/serenedb/serenedb/issues/887.";
 }
 
 void ExtensionHelper::ThrowExtensionRuntimeUnsupported(const string &extension_name, bool is_install) {
