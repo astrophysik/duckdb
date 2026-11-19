@@ -669,7 +669,7 @@ void SecretManager::ThrowTypeNotFoundError(const Identifier &type, const string 
 	auto entry = ExtensionHelper::FindExtensionInEntries(type, EXTENSION_SECRET_TYPES);
 	string error_message;
 
-	if (!entry.empty() && db) {
+	if (!entry.empty() && db && !db->ExtensionIsLoaded(entry)) {
 		error_message = "Secret type '" + type + "' does not exist in SereneDB (DuckDB provides it in its " + entry +
 		                " extension).";
 		error_message = ExtensionHelper::AddExtensionInstallHintToErrorMsg(*db, error_message, entry);
@@ -698,7 +698,7 @@ void SecretManager::AutoloadExtensionForFunction(const Identifier &type, const I
 
 void SecretManager::ThrowProviderNotFoundError(const Identifier &type, const Identifier &provider, bool was_default) {
 	auto entry = ExtensionHelper::FindExtensionInEntries(SecretProviderKey(type, provider), EXTENSION_SECRET_PROVIDERS);
-	if (!entry.empty() && db) {
+	if (!entry.empty() && db && !db->ExtensionIsLoaded(entry)) {
 		string error_message = was_default ? "Default secret provider" : "Secret provider";
 		error_message +=
 		    StringUtil::Format(" %s for type %s does not exist in SereneDB (DuckDB provides it in its %s extension).",

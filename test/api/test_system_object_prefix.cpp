@@ -136,7 +136,10 @@ TEST_CASE("The SQL formatter takes the system object prefix", "[api][system_obje
 	result = con.Query("SELECT serenedb_format_sql('select 1', MAP {'keyword_case': 'shout'})");
 	REQUIRE(result->HasError());
 	REQUIRE(StringUtil::Contains(result->GetError(), "serenedb_format_sql: keyword_case"));
-	REQUIRE_FAIL(con.Query("SELECT duckdb_format_sql('select 1')"));
+	result = con.Query("SELECT duckdb_format_sql('select 1')");
+	REQUIRE(result->HasError());
+	REQUIRE(StringUtil::Contains(result->GetError(), "duckdb_format_sql does not exist!\nDid you mean"));
+	REQUIRE(!StringUtil::Contains(result->GetError(), "autocomplete extension"));
 }
 
 TEST_CASE("Log files take the system object prefix", "[api][system_object_prefix]") {

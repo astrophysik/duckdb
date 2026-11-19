@@ -52,7 +52,8 @@ static bool GetBooleanArg(ClientContext &context, const vector<Value> &arg) {
 
 void IsFormatExtensionKnown(ClientContext &context, const string &format) {
 	for (auto &file_postfixes : EXTENSION_FILE_POSTFIXES) {
-		if (format == file_postfixes.name + 1) {
+		if (format == file_postfixes.name + 1 &&
+		    !DatabaseInstance::GetDatabase(context).ExtensionIsLoaded(file_postfixes.extension)) {
 			// It's a match, we must throw
 			throw CatalogException(ExtensionHelper::AddExtensionInstallHintToErrorMsg(
 			    context,
