@@ -15,7 +15,7 @@ unique_ptr<SQLStatement> PEGTransformerFactory::TransformVacuumStatement(PEGTran
 	}
 	if (!options.serenedb_pragma_option.empty()) {
 		auto pragma = make_uniq<PragmaStatement>();
-		pragma->info->name = "serenedb_vacuum";
+		pragma->info->name = "sdb_vacuum";
 		pragma->info->parameters.push_back(ConstantExpression::String(options.serenedb_pragma_option));
 		if (analyze_target && analyze_target->ref) {
 			auto &base_ref = analyze_target->ref->Cast<BaseTableRef>();

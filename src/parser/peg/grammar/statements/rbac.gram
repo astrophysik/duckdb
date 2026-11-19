@@ -115,7 +115,7 @@ SysIdOption     <- 'SYSID' NumberLiteral
 PasswordOption  <- 'ENCRYPTED'? 'PASSWORD' StringLiteral
 
 # Row-Level Security. CREATE/ALTER/DROP POLICY -> serenedb_*_policy pragmas;
-# ALTER TABLE ... ROW LEVEL SECURITY -> serenedb_alter_table_row_security. The
+# ALTER TABLE ... ROW LEVEL SECURITY -> sdb_alter_table_row_security. The
 # USING/WITH CHECK predicate is rendered to text in the transformer (a pragma
 # arg cannot carry a live column-referencing expression) and re-parsed at
 # enforcement time. Registered before the native Create/Alter statements.

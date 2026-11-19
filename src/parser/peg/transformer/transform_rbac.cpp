@@ -365,7 +365,7 @@ unique_ptr<ParsedExpression> OptionalPolicyRoles(PEGTransformer &transformer, Pa
 
 // CREATE POLICY name ON table [AS PERMISSIVE|RESTRICTIVE] [FOR cmd] [TO roles]
 //   [USING (expr)] [WITH CHECK (expr)]
-//   -> PRAGMA serenedb_create_policy('name', 'table', permissive, 'cmd',
+//   -> PRAGMA sdb_create_policy('name', 'table', permissive, 'cmd',
 //          [roles], has_using, 'using_text', has_check, 'check_text')
 // AS defaults PERMISSIVE; FOR defaults ALL; TO defaults PUBLIC (empty list).
 unique_ptr<SQLStatement> PEGTransformerFactory::TransformCreatePolicyStatement(PEGTransformer &transformer,
@@ -381,7 +381,7 @@ unique_ptr<SQLStatement> PEGTransformerFactory::TransformCreatePolicyStatement(P
 	auto [has_check, check_text] = OptionalPolicyExpr(transformer, list_pr, 9, 2);
 
 	auto result = make_uniq<PragmaStatement>();
-	result->info->name = "serenedb_create_policy";
+	result->info->name = "sdb_create_policy";
 	result->info->parameters.push_back(StrConst(name));
 	result->info->parameters.push_back(StrConst(table));
 	result->info->parameters.push_back(BoolConst(permissive));
@@ -395,8 +395,8 @@ unique_ptr<SQLStatement> PEGTransformerFactory::TransformCreatePolicyStatement(P
 }
 
 // ALTER POLICY name ON table ( RENAME TO new | [TO roles] [USING (e)] [WITH CHECK (e)] )
-//   rename  -> PRAGMA serenedb_alter_policy('name', 'table', true, 'new', false, "", false, "", false, "")
-//   alter   -> PRAGMA serenedb_alter_policy('name', 'table', false, "", has_roles,
+//   rename  -> PRAGMA sdb_alter_policy('name', 'table', true, 'new', false, "", false, "", false, "")
+//   alter   -> PRAGMA sdb_alter_policy('name', 'table', false, "", has_roles,
 //                  [roles], has_using, 'using', has_check, 'check')
 // FOR and PERMISSIVE/RESTRICTIVE are NOT alterable (PG: drop & recreate). Each
 // clause is tri-stated via a has_* flag so "unspecified" != "set".
@@ -409,7 +409,7 @@ unique_ptr<SQLStatement> PEGTransformerFactory::TransformAlterPolicyStatement(PE
 	auto &chosen = list_pr.GetChild(5).Cast<ListParseResult>().Child<ChoiceParseResult>(0).GetResult();
 
 	auto result = make_uniq<PragmaStatement>();
-	result->info->name = "serenedb_alter_policy";
+	result->info->name = "sdb_alter_policy";
 	result->info->parameters.push_back(StrConst(name));
 	result->info->parameters.push_back(StrConst(table));
 
@@ -446,7 +446,7 @@ unique_ptr<SQLStatement> PEGTransformerFactory::TransformAlterPolicyStatement(PE
 }
 
 // DROP POLICY [IF EXISTS] name ON table [CASCADE|RESTRICT]
-//   -> PRAGMA serenedb_drop_policy('name', 'table', if_exists)
+//   -> PRAGMA sdb_drop_policy('name', 'table', if_exists)
 unique_ptr<SQLStatement> PEGTransformerFactory::TransformDropPolicyStatement(PEGTransformer &transformer,
                                                                              ParseResult &parse_result) {
 	auto &list_pr = parse_result.Cast<ListParseResult>();
@@ -456,7 +456,7 @@ unique_ptr<SQLStatement> PEGTransformerFactory::TransformDropPolicyStatement(PEG
 	auto table = QualifiedTableName(transformer, list_pr.GetChild(5));
 
 	auto result = make_uniq<PragmaStatement>();
-	result->info->name = "serenedb_drop_policy";
+	result->info->name = "sdb_drop_policy";
 	result->info->parameters.push_back(StrConst(name));
 	result->info->parameters.push_back(StrConst(table));
 	result->info->parameters.push_back(BoolConst(if_exists));
@@ -464,7 +464,7 @@ unique_ptr<SQLStatement> PEGTransformerFactory::TransformDropPolicyStatement(PEG
 }
 
 // ALTER TABLE [IF EXISTS] table {ENABLE|DISABLE|FORCE|NO FORCE} ROW LEVEL SECURITY
-//   -> PRAGMA serenedb_alter_table_row_security('table', 'ENABLE'|'DISABLE'|'FORCE'|'NOFORCE')
+//   -> PRAGMA sdb_alter_table_row_security('table', 'ENABLE'|'DISABLE'|'FORCE'|'NOFORCE')
 unique_ptr<SQLStatement> PEGTransformerFactory::TransformAlterTableRowSecurityStatement(PEGTransformer &transformer,
                                                                                         ParseResult &parse_result) {
 	auto &list_pr = parse_result.Cast<ListParseResult>();
@@ -482,7 +482,7 @@ unique_ptr<SQLStatement> PEGTransformerFactory::TransformAlterTableRowSecuritySt
 	}
 
 	auto result = make_uniq<PragmaStatement>();
-	result->info->name = "serenedb_alter_table_row_security";
+	result->info->name = "sdb_alter_table_row_security";
 	result->info->parameters.push_back(StrConst(table));
 	result->info->parameters.push_back(StrConst(action));
 	return std::move(result);
