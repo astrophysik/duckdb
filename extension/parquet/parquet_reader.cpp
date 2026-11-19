@@ -295,7 +295,7 @@ LoadMetadata(ClientContext &context, Allocator &allocator, CachingFileHandle &fi
 		static constexpr idx_t MIN_PREFETCH_SIZE = 16384;     // Prefetch at least this many bytes
 		static constexpr idx_t MAX_PREFETCH_SIZE = 262144;    // Prefetch at most this many bytes
 		idx_t prefetch_size = 8;
-		if (ShouldAndCanPrefetch(context, file_handle)) {
+		if (file_handle.IsRemoteFile() && ShouldAndCanPrefetch(context, file_handle)) {
 			prefetch_size = ClampValue(file_size / ESTIMATED_FOOTER_RATIO, MIN_PREFETCH_SIZE, MAX_PREFETCH_SIZE);
 			prefetch_size = MinValue(NextPowerOfTwo(prefetch_size), file_size);
 		}
