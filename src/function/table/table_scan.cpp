@@ -1427,7 +1427,8 @@ TableFunction TableScanFunction::GetFunction() {
 	scan_function.supports_lookup = TableScanSupportsLookup;
 	scan_function.get_lookup_function = TableScanGetLookupFunction;
 	scan_function.set_scan_order = SetScanOrder;
-	scan_function.set_partitions_to_scan = SetPartitionsToScan;
+	// no set_partitions_to_scan: the row groups of a table can change between planning and execution (concurrent
+	// appends, checkpoints), and a partition precomputed from its statistics would then be scanned again
 	scan_function.supports_pushdown_extract = TableSupportsPushdownExtract;
 	return scan_function;
 }

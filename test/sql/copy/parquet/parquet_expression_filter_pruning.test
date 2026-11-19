@@ -56,11 +56,12 @@ SELECT count(*) FROM '{TEST_DIR}/expr_prune_int.parquet' WHERE a * 4 - 4 < 40961
 statement ok
 CALL disable_logging()
 
+# count(*) of group 0 (always-true) is precomputed from its statistics and groups 2-9 (always-false) are not read,
+# so the Parquet scan reads group 1 only
 query II
 SELECT event, count(*) FROM duckdb_logs_parsed('PhysicalOperator') WHERE class='ParquetReader' GROUP BY event ORDER BY event
 ----
-ReadRowGroup	2
-SkipRowGroup	8
+ReadRowGroup	1
 
 statement ok
 CALL truncate_duckdb_logs()
@@ -220,8 +221,9 @@ WHERE prefix(s, 'b') OR prefix(s, 'd')
 ----
 2048
 
+# sum(x) keeps the scan: a count alone is precomputed from the row groups the filter holds for
 query II
-EXPLAIN ANALYZE SELECT count(*)
+EXPLAIN ANALYZE SELECT count(*), sum(x)
 FROM '{TEST_DIR}/expr_prune_prefix_corner.parquet'
 WHERE prefix(s, 'b') OR prefix(s, 'd')
 ----
@@ -229,7 +231,7 @@ analyzed_plan	<REGEX>:(?s).*Row Groups Scanned: 1 / 4.*
 
 # Empty prefixes match all non-NULL strings but not NULL strings
 query II
-EXPLAIN ANALYZE SELECT count(*)
+EXPLAIN ANALYZE SELECT count(*), sum(x)
 FROM '{TEST_DIR}/expr_prune_prefix_corner.parquet'
 WHERE prefix(s, '') OR prefix(s, 'zz')
 ----

@@ -291,8 +291,13 @@ static bool ReadsPointsOnly(const LogicalOperator &plan, const vector<StatementP
 
 static bool PrunesByLayout(const LogicalOperator &op) {
 	if (op.type == LogicalOperatorType::LOGICAL_GET) {
-		auto &options = op.Cast<LogicalGet>().row_group_order_options;
+		auto &get = op.Cast<LogicalGet>();
+		auto &options = get.row_group_order_options;
 		if (options && (options->row_group_offset != 0 || options->leading_null_group_offset != 0)) {
+			return true;
+		}
+		if (!get.scan_partition_indices.empty()) {
+			// the row groups a partial precomputation skips are numbered by the layout
 			return true;
 		}
 	}

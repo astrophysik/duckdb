@@ -259,8 +259,10 @@ void StatisticsPropagator::TryExecuteAggregates(LogicalAggregate &aggr, unique_p
 		return;
 	}
 
-	// we can do the rewrite! get the stats
+	// we can do the rewrite! get the stats - with filters, per row group, which a partial precomputation scans or
+	// skips; without, whatever partitions the scan answers fastest with
 	GetPartitionStatsInput input(get.function, get.bind_data.get());
+	input.row_groups = get.table_filters.HasFilters() && get.function.set_partitions_to_scan;
 	auto partition_stats = get.function.get_partition_stats(context, input);
 	if (partition_stats.empty()) {
 		// no partition stats found
@@ -310,10 +312,8 @@ void StatisticsPropagator::TryExecuteAggregates(LogicalAggregate &aggr, unique_p
 					return;
 				}
 				auto column_stats = prg->GetColumnStatistics(storage_index);
-				if (!column_stats) {
-					return;
-				}
-				if (!prg->MinMaxIsExact(storage_index) || prg->HasPendingWrites()) {
+				if (!column_stats || !prg->MinMaxIsExact(storage_index) || prg->HasPendingWrites()) {
+					// a partition the statistics cannot settle is scanned
 					filter_result = FilterPropagateResult::NO_PRUNING_POSSIBLE;
 					break;
 				}
@@ -398,17 +398,11 @@ void StatisticsPropagator::TryExecuteAggregates(LogicalAggregate &aggr, unique_p
 	}
 
 	if (need_to_scan) {
-		// Partial precomputation combines plan-time partition statistics with an execution-time scan that
-		// skips partitions by their index in the row-group list. That list can change in between
-		// (concurrent appends, checkpoints), in which case a skipped partition is scanned again and its
-		// rows are counted twice. Only the full precomputation (no scan) is safe.
-		return;
-	}
-	if (need_to_scan) {
 		// Partial precomputation: some partitions need scanning
 		// Insert a LogicalProjection above the aggregate that combines pre-computed constants with scan results
 		if (!get.function.set_partitions_to_scan) {
-			// scan does not support partition filtering - bail out
+			// scan does not support partition filtering - or cannot promise that the partitions it scans at execution
+			// are those it listed here, so that a skipped partition would be scanned (and counted) again
 			return;
 		}
 

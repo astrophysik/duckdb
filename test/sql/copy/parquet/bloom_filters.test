@@ -897,9 +897,11 @@ COPY (
 	DICTIONARY_SIZE_LIMIT 1000
 );
 
+# the rows are read, not counted: a count of the signed zeros would come from the statistics of their row group, which
+# the Bloom filter then is not asked about
 query II
 EXPLAIN ANALYZE
-SELECT count(*)
+SELECT x
 FROM read_parquet('{TEST_DIR}/bloom_ndf_signed_zero.parquet')
 WHERE x IS NOT DISTINCT FROM 0.0;
 ----
@@ -914,7 +916,7 @@ WHERE x IS NOT DISTINCT FROM 0.0;
 
 query II
 EXPLAIN ANALYZE
-SELECT count(*)
+SELECT x
 FROM read_parquet('{TEST_DIR}/bloom_ndf_signed_zero.parquet')
 WHERE x IS NOT DISTINCT FROM -0.0;
 ----
