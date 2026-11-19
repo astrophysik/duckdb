@@ -230,7 +230,6 @@ static const StaticFunctionDefinition function[] = {
 	DUCKDB_SCALAR_FUNCTION(NullIfFun),
 	DUCKDB_SCALAR_FUNCTION_SET(OctetLengthFun),
 	DUCKDB_SCALAR_FUNCTION_SET(OverlayFun),
-	DUCKDB_SCALAR_FUNCTION(ParseLogMessage),
 	DUCKDB_SCALAR_FUNCTION(PathJoinFun),
 	DUCKDB_WINDOW_FUNCTION(PercentRankFun),
 	DUCKDB_SCALAR_FUNCTION(PrefixFun),

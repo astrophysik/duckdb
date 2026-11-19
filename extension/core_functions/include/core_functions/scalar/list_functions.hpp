@@ -111,7 +111,7 @@ struct ListSliceFun {
 	static constexpr const char *Name = "list_slice";
 	static constexpr const char *Parameters = "list,begin,end\001list,begin,end,step";
 	static constexpr const char *Description = "Extracts a sublist or substring using slice conventions. Negative values are accepted.\001list_slice with added step feature.";
-	static constexpr const char *Example = "list_slice([4, 5, 6], 2, 3)\002array_slice('DuckDB', 3, 4)\002array_slice('DuckDB', 3, NULL)\002array_slice('DuckDB', 0, -3)\001list_slice([4, 5, 6], 1, 3, 2)";
+	static constexpr const char *Example = "list_slice([4, 5, 6], 2, 3)\002array_slice('abcdef', 3, 4)\002array_slice('abcdef', 3, NULL)\002array_slice('abcdef', 0, -3)\001list_slice([4, 5, 6], 1, 3, 2)";
 	static constexpr const char *Categories = "list,string\001list";
 
 	static ScalarFunctionSet GetFunctions();
@@ -214,7 +214,7 @@ struct ApplyFun {
 struct ListFilterFun {
 	static constexpr const char *Name = "list_filter";
 	static constexpr const char *Parameters = "list,lambda";
-	static constexpr const char *Description = "Constructs a list from those elements of the input `list` for which the `lambda` function returns `true`. DuckDB must be able to cast the `lambda` function's return type to `BOOL`. The return type of `list_filter` is the same as the input list's.";
+	static constexpr const char *Description = "Constructs a list from those elements of the input `list` for which the `lambda` function returns `true`. The `lambda` function's return type must be castable to `BOOL`. The return type of `list_filter` is the same as the input list's.";
 	static constexpr const char *Example = "list_filter([3, 4, 5], lambda x : x > 4)";
 	static constexpr const char *Categories = "list,lambda";
 

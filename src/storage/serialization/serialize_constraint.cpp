@@ -11,10 +11,10 @@ namespace duckdb {
 
 void Constraint::Serialize(Serializer &serializer) const {
 	serializer.WriteProperty<ConstraintType>(100, "type", type);
-	if (serializer.ShouldSerialize(StorageVersion::SERENEDB_V1)) {
+	if (serializer.ShouldSerialize(StorageVersion::SDB_V1)) {
 		serializer.WritePropertyWithDefault<string>(16484, "constraint_name", constraint_name);
 	}
-	if (serializer.ShouldSerialize(StorageVersion::SERENEDB_V1)) {
+	if (serializer.ShouldSerialize(StorageVersion::SDB_V1)) {
 		serializer.WritePropertyWithDefault<idx_t>(16485, "oid", oid);
 	}
 }
@@ -98,7 +98,7 @@ void UniqueConstraint::Serialize(Serializer &serializer) const {
 	if (serializer.ShouldSerialize(StorageVersion::V2_0_0)) {
 		serializer.WritePropertyWithDefault<ConstraintCheckMode>(203, "check_mode", check_mode, ConstraintCheckMode::DEFAULT);
 	}
-	if (serializer.ShouldSerialize(StorageVersion::SERENEDB_V1)) {
+	if (serializer.ShouldSerialize(StorageVersion::SDB_V1)) {
 		serializer.WritePropertyWithDefault<idx_t>(16584, "index_oid", index_oid);
 	}
 }

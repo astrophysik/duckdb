@@ -81,7 +81,7 @@ struct DamerauLevenshteinFun {
 	static constexpr const char *Name = "damerau_levenshtein";
 	static constexpr const char *Parameters = "s1,s2";
 	static constexpr const char *Description = "Extension of Levenshtein distance to also include transposition of adjacent characters as an allowed edit operation. In other words, the minimum number of edit operations (insertions, deletions, substitutions or transpositions) required to change one string to another. Characters of different cases (e.g., `a` and `A`) are considered different.";
-	static constexpr const char *Example = "damerau_levenshtein('duckdb', 'udckbd')";
+	static constexpr const char *Example = "damerau_levenshtein('hello', 'ehllo')";
 	static constexpr const char *Categories = "text_similarity";
 
 	static ScalarFunction GetFunction();
@@ -205,7 +205,7 @@ struct JaroSimilarityFun {
 	static constexpr const char *Name = "jaro_similarity";
 	static constexpr const char *Parameters = "s1,s2,score_cutoff";
 	static constexpr const char *Description = "The Jaro similarity between two strings. Characters of different cases (e.g., `a` and `A`) are considered different. Returns a number between 0 and 1. For similarity < `score_cutoff`, 0 is returned instead. `score_cutoff` defaults to 0.";
-	static constexpr const char *Example = "jaro_similarity('duck', 'duckdb')";
+	static constexpr const char *Example = "jaro_similarity('fox', 'foxes')";
 	static constexpr const char *Categories = "text_similarity";
 
 	static ScalarFunctionSet GetFunctions();
@@ -215,7 +215,7 @@ struct JaroWinklerSimilarityFun {
 	static constexpr const char *Name = "jaro_winkler_similarity";
 	static constexpr const char *Parameters = "s1,s2,score_cutoff";
 	static constexpr const char *Description = "The Jaro-Winkler similarity between two strings. Characters of different cases (e.g., `a` and `A`) are considered different. Returns a number between 0 and 1. For similarity < `score_cutoff`, 0 is returned instead. `score_cutoff` defaults to 0.";
-	static constexpr const char *Example = "jaro_winkler_similarity('duck', 'duckdb')";
+	static constexpr const char *Example = "jaro_winkler_similarity('fox', 'foxes')";
 	static constexpr const char *Categories = "text_similarity";
 
 	static ScalarFunctionSet GetFunctions();
@@ -489,7 +489,7 @@ struct UrlDecodeFun {
 	static constexpr const char *Name = "url_decode";
 	static constexpr const char *Parameters = "string";
 	static constexpr const char *Description = "Decodes a URL from a representation using Percent-Encoding.";
-	static constexpr const char *Example = "url_decode('https%3A%2F%2Fduckdb.org%2Fwhy_duckdb%23portable')";
+	static constexpr const char *Example = "url_decode('https%3A%2F%2Fexample.com%2Fdocs%23intro')";
 	static constexpr const char *Categories = "string";
 
 	static ScalarFunction GetFunction();

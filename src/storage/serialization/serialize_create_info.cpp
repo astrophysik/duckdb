@@ -46,10 +46,10 @@ void CreateInfo::Serialize(Serializer &serializer) const {
 		serializer.WriteProperty<QualifiedName>(111, "qualified_name", qualified_name);
 	}
 	serializer.WritePropertyWithDefault<Permissions>(16484, "permissions", permissions, Permissions());
-	if (serializer.ShouldSerialize(StorageVersion::SERENEDB_V1)) {
+	if (serializer.ShouldSerialize(StorageVersion::SDB_V1)) {
 		serializer.WritePropertyWithDefault<idx_t>(16485, "oid", oid);
 	}
-	if (serializer.ShouldSerialize(StorageVersion::SERENEDB_V1)) {
+	if (serializer.ShouldSerialize(StorageVersion::SDB_V1)) {
 		serializer.WritePropertyWithDefault<idx_t>(16486, "schema_oid", schema_oid);
 	}
 }
@@ -192,7 +192,7 @@ void CreateIndexInfo::Serialize(Serializer &serializer) const {
 	serializer.WritePropertyWithDefault<unique_ptr<ParsedExpression>>(16584, "where_clause", where_clause);
 	serializer.WritePropertyWithDefault<vector<string>>(16585, "column_opclasses", GetOpclassesForSerialization());
 	serializer.WritePropertyWithDefault<vector<optional<case_insensitive_map_t<Value>>>>(16586, "column_opclass_options", GetOpclassOptionsForSerialization());
-	if (serializer.ShouldSerialize(StorageVersion::SERENEDB_V1)) {
+	if (serializer.ShouldSerialize(StorageVersion::SDB_V1)) {
 		serializer.WritePropertyWithDefault<idx_t>(16587, "table_oid", table_oid);
 	}
 }
@@ -242,7 +242,7 @@ void CreateMacroInfo::Serialize(Serializer &serializer) const {
 	serializer.WritePropertyWithDefault<Identifier>(200, "name", qualified_name.Name());
 	serializer.WritePropertyWithDefault<unique_ptr<MacroFunction>>(201, "function", macros[0]);
 	serializer.WritePropertyWithDefault<vector<unique_ptr<MacroFunction>>>(202, "extra_functions", GetAllButFirstFunction());
-	if (serializer.ShouldSerialize(StorageVersion::SERENEDB_V1)) {
+	if (serializer.ShouldSerialize(StorageVersion::SDB_V1)) {
 		serializer.WritePropertyWithDefault<bool>(16584, "is_procedure", is_procedure);
 	}
 }
@@ -318,16 +318,16 @@ void CreateSequenceInfo::Serialize(Serializer &serializer) const {
 	if (serializer.ShouldSerialize(StorageVersion::V2_0_0)) {
 		serializer.WritePropertyWithDefault<optional<int64_t>>(207, "last_value", last_value);
 	}
-	if (serializer.ShouldSerialize(StorageVersion::SERENEDB_V1)) {
+	if (serializer.ShouldSerialize(StorageVersion::SDB_V1)) {
 		serializer.WritePropertyWithDefault<uint64_t>(16584, "cache", cache, 1ULL);
 	}
-	if (serializer.ShouldSerialize(StorageVersion::SERENEDB_V1)) {
+	if (serializer.ShouldSerialize(StorageVersion::SDB_V1)) {
 		serializer.WritePropertyWithDefault<optional<int64_t>>(16585, "recorded_start", recorded_start);
 	}
-	if (serializer.ShouldSerialize(StorageVersion::SERENEDB_V1)) {
+	if (serializer.ShouldSerialize(StorageVersion::SDB_V1)) {
 		serializer.WritePropertyWithDefault<vector<Identifier>>(16586, "owned_by", owned_by);
 	}
-	if (serializer.ShouldSerialize(StorageVersion::SERENEDB_V1)) {
+	if (serializer.ShouldSerialize(StorageVersion::SDB_V1)) {
 		serializer.WritePropertyWithDefault<optional_idx>(16587, "owner_column", owner_column, optional_idx());
 	}
 }
@@ -449,7 +449,7 @@ void CreateTriggerInfo::Serialize(Serializer &serializer) const {
 	serializer.WritePropertyWithDefault<unique_ptr<QueryNode>>(208, "trigger_action", trigger_action);
 	serializer.WritePropertyWithDefault<Identifier>(209, "referencing_new_table", referencing_new_table);
 	serializer.WritePropertyWithDefault<Identifier>(210, "referencing_old_table", referencing_old_table);
-	if (serializer.ShouldSerialize(StorageVersion::SERENEDB_V1)) {
+	if (serializer.ShouldSerialize(StorageVersion::SDB_V1)) {
 		serializer.WritePropertyWithDefault<TriggerFiring>(16595, "firing", firing, TriggerFiring::ORIGIN);
 	}
 }

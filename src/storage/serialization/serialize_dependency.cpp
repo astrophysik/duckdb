@@ -54,13 +54,13 @@ void LogicalDependency::Serialize(Serializer &serializer) const {
 	if (serializer.ShouldSerialize(StorageVersion::V2_0_0)) {
 		serializer.WritePropertyWithDefault<DependencyDependentFlags>(102, "flags", flags, DependencyDependentFlags().SetBlocking());
 	}
-	if (serializer.ShouldSerialize(StorageVersion::SERENEDB_V1)) {
+	if (serializer.ShouldSerialize(StorageVersion::SDB_V1)) {
 		serializer.WritePropertyWithDefault<bool>(16484, "owned_by", owned_by);
 	}
-	if (serializer.ShouldSerialize(StorageVersion::SERENEDB_V1)) {
+	if (serializer.ShouldSerialize(StorageVersion::SDB_V1)) {
 		serializer.WritePropertyWithDefault<subdependency_set_t>(16485, "subdependencies", subdependencies, subdependency_set_t());
 	}
-	if (serializer.ShouldSerialize(StorageVersion::SERENEDB_V1)) {
+	if (serializer.ShouldSerialize(StorageVersion::SDB_V1)) {
 		serializer.WritePropertyWithDefault<idx_t>(16486, "oid", oid);
 	}
 }

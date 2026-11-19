@@ -258,7 +258,7 @@ void ColumnDefinition::Serialize(Serializer &serializer) const {
 	serializer.WritePropertyWithDefault<Value>(105, "comment", comment, Value());
 	serializer.WritePropertyWithDefault<InsertionOrderPreservingMap<string>>(106, "tags", tags);
 	serializer.WritePropertyWithDefault<vector<AclItem>>(16484, "acl", acl);
-	if (serializer.ShouldSerialize(StorageVersion::SERENEDB_V1)) {
+	if (serializer.ShouldSerialize(StorageVersion::SDB_V1)) {
 		serializer.WritePropertyWithDefault<idx_t>(16485, "catalog_oid", catalog_oid);
 	}
 }
@@ -311,10 +311,10 @@ ColumnInfo ColumnInfo::Deserialize(Deserializer &deserializer) {
 
 void ColumnList::Serialize(Serializer &serializer) const {
 	serializer.WritePropertyWithDefault<vector<ColumnDefinition>>(100, "columns", columns);
-	if (serializer.ShouldSerialize(StorageVersion::SERENEDB_V1)) {
+	if (serializer.ShouldSerialize(StorageVersion::SDB_V1)) {
 		serializer.WritePropertyWithDefault<bool>(16484, "allow_duplicate_names", allow_duplicate_names);
 	}
-	if (serializer.ShouldSerialize(StorageVersion::SERENEDB_V1)) {
+	if (serializer.ShouldSerialize(StorageVersion::SDB_V1)) {
 		serializer.WritePropertyWithDefault<bool>(16485, "case_sensitive", case_sensitive);
 	}
 }

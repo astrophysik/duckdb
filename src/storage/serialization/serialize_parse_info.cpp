@@ -97,7 +97,7 @@ void AlterInfo::Serialize(Serializer &serializer) const {
 	if (serializer.ShouldSerialize(StorageVersion::V2_0_0) || (qualified_name.Path().size() > 3)) {
 		serializer.WriteProperty<QualifiedName>(206, "qualified_name", qualified_name);
 	}
-	if (serializer.ShouldSerialize(StorageVersion::SERENEDB_V1)) {
+	if (serializer.ShouldSerialize(StorageVersion::SDB_V1)) {
 		serializer.WritePropertyWithDefault<idx_t>(16484, "oid", oid);
 	}
 }
@@ -584,7 +584,7 @@ void ChangeColumnTypeInfo::Serialize(Serializer &serializer) const {
 	serializer.WriteProperty<LogicalType>(401, "target_type", target_type);
 	serializer.WritePropertyWithDefault<unique_ptr<ParsedExpression>>(402, "expression", expression);
 	serializer.WritePropertyWithDefault<vector<Identifier>>(403, "column_path", column_path.size() > 1 ? column_path : vector<Identifier>(), vector<Identifier>());
-	if (serializer.ShouldSerialize(StorageVersion::SERENEDB_V1)) {
+	if (serializer.ShouldSerialize(StorageVersion::SDB_V1)) {
 		serializer.WritePropertyWithDefault<idx_t>(16788, "catalog_oid", catalog_oid);
 	}
 }
@@ -607,7 +607,7 @@ void ChangeOwnershipInfo::Serialize(Serializer &serializer) const {
 	serializer.WriteProperty<CatalogType>(300, "entry_catalog_type", entry_catalog_type);
 	serializer.WritePropertyWithDefault<Identifier>(301, "owner_schema", owner_schema);
 	serializer.WritePropertyWithDefault<Identifier>(302, "owner_name", owner_name);
-	if (serializer.ShouldSerialize(StorageVersion::SERENEDB_V1)) {
+	if (serializer.ShouldSerialize(StorageVersion::SDB_V1)) {
 		serializer.WritePropertyWithDefault<vector<Identifier>>(16584, "owner_path", owner_path);
 	}
 }
@@ -1014,7 +1014,7 @@ void ResetTableOptionsInfo::Serialize(Serializer &serializer) const {
 	} else {
 		serializer.WriteProperty<identifier_set_t>(400, "table_options", table_options);
 	}
-	if (serializer.ShouldSerialize(StorageVersion::SERENEDB_V1)) {
+	if (serializer.ShouldSerialize(StorageVersion::SDB_V1)) {
 		serializer.WritePropertyWithDefault<case_insensitive_map_t<Value>>(16785, "values", values);
 	}
 }

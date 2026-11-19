@@ -178,7 +178,7 @@ struct CurrentTransactionIdFun {
 struct VersionFun {
 	static constexpr const char *Name = "version";
 	static constexpr const char *Parameters = "";
-	static constexpr const char *Description = "Returns the currently active version of DuckDB in this format: v0.3.2	";
+	static constexpr const char *Description = "Returns the currently active version of the database library in this format: v0.3.2	";
 	static constexpr const char *Example = "version()";
 	static constexpr const char *Categories = "";
 

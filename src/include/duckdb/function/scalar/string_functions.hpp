@@ -399,7 +399,7 @@ struct RegexpEscapeFun {
 	static constexpr const char *Name = "regexp_escape";
 	static constexpr const char *Parameters = "string";
 	static constexpr const char *Description = "Escapes special patterns to turn `string` into a regular expression similarly to Python's `re.escape` function.";
-	static constexpr const char *Example = "regexp_escape('https://duckdb.org')";
+	static constexpr const char *Example = "regexp_escape('https://example.com')";
 	static constexpr const char *Categories = "regex";
 
 	static ScalarFunction GetFunction();

@@ -18,25 +18,25 @@ void MacroFunction::Serialize(Serializer &serializer) const {
 	if (serializer.ShouldSerialize(StorageVersion::V1_4_0)) {
 		serializer.WritePropertyWithDefault<vector<LogicalType>>(103, "types", types, vector<LogicalType>());
 	}
-	if (serializer.ShouldSerialize(StorageVersion::SERENEDB_V1)) {
+	if (serializer.ShouldSerialize(StorageVersion::SDB_V1)) {
 		serializer.WritePropertyWithDefault<vector<LogicalType>>(16484, "return_types", return_types);
 	}
-	if (serializer.ShouldSerialize(StorageVersion::SERENEDB_V1)) {
+	if (serializer.ShouldSerialize(StorageVersion::SDB_V1)) {
 		serializer.WritePropertyWithDefault<vector<string>>(16485, "return_names", return_names);
 	}
-	if (serializer.ShouldSerialize(StorageVersion::SERENEDB_V1)) {
+	if (serializer.ShouldSerialize(StorageVersion::SDB_V1)) {
 		serializer.WritePropertyWithDefault<string>(16486, "source", source, string());
 	}
-	if (serializer.ShouldSerialize(StorageVersion::SERENEDB_V1)) {
+	if (serializer.ShouldSerialize(StorageVersion::SDB_V1)) {
 		serializer.WritePropertyWithDefault<bool>(16488, "is_procedure", is_procedure, false);
 	}
-	if (serializer.ShouldSerialize(StorageVersion::SERENEDB_V1)) {
+	if (serializer.ShouldSerialize(StorageVersion::SDB_V1)) {
 		serializer.WritePropertyWithDefault<string>(16489, "parameter_modes", parameter_modes, "");
 	}
-	if (serializer.ShouldSerialize(StorageVersion::SERENEDB_V1)) {
+	if (serializer.ShouldSerialize(StorageVersion::SDB_V1)) {
 		serializer.WritePropertyWithDefault<bool>(16490, "strict", strict, false);
 	}
-	if (serializer.ShouldSerialize(StorageVersion::SERENEDB_V1)) {
+	if (serializer.ShouldSerialize(StorageVersion::SDB_V1)) {
 		serializer.WritePropertyWithDefault<FunctionStability>(16491, "stability", stability, FunctionStability::VOLATILE);
 	}
 }
@@ -81,7 +81,7 @@ unique_ptr<MacroFunction> MacroFunction::Deserialize(Deserializer &deserializer)
 void ScalarMacroFunction::Serialize(Serializer &serializer) const {
 	MacroFunction::Serialize(serializer);
 	serializer.WritePropertyWithDefault<unique_ptr<ParsedExpression>>(200, "expression", expression);
-	if (serializer.ShouldSerialize(StorageVersion::SERENEDB_V1)) {
+	if (serializer.ShouldSerialize(StorageVersion::SDB_V1)) {
 		serializer.WritePropertyWithDefault<bool>(16487, "query_body", query_body, false);
 	}
 }

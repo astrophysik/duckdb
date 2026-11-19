@@ -347,8 +347,8 @@ struct ArrowLosslessConversionSetting {
 	using RETURN_TYPE = bool;
 	static constexpr const char *Name = "arrow_lossless_conversion";
 	static constexpr const char *Description =
-	    "Whenever a DuckDB type does not have a clear native or canonical extension match in Arrow, export the types "
-	    "with a duckdb.type_name extension name.";
+	    "Whenever a type does not have a clear native or canonical extension match in Arrow, export the types with a "
+	    "duckdb.type_name extension name.";
 	static constexpr const char *InputType = "BOOLEAN";
 	static constexpr bool IsDebug = false;
 	static constexpr bool IsDeprecated = false;
@@ -377,8 +377,7 @@ struct ArrowOutputListViewSetting {
 struct ArrowOutputVersionSetting {
 	using RETURN_TYPE = ArrowFormatVersion;
 	static constexpr const char *Name = "arrow_output_version";
-	static constexpr const char *Description =
-	    "Whether strings should be produced by DuckDB in Utf8View format instead of Utf8.";
+	static constexpr const char *Description = "Whether strings should be produced in Utf8View format instead of Utf8.";
 	static constexpr const char *InputType = "VARCHAR";
 	static constexpr bool IsDebug = false;
 	static constexpr bool IsDeprecated = false;
@@ -611,7 +610,7 @@ struct CustomUserAgentSetting {
 	using RETURN_TYPE = string;
 	static constexpr const char *Name = "custom_user_agent";
 	static constexpr const char *Description = "HTTP request metadata that can be set by callers/wrappers to tag their "
-	                                           "own traffic when DuckDB makes a request.";
+	                                           "own traffic in the requests the database makes.";
 	static constexpr const char *InputType = "VARCHAR";
 	static constexpr bool IsDebug = false;
 	static constexpr bool IsDeprecated = false;
@@ -1305,7 +1304,7 @@ struct DisableDatabaseInvalidationSetting {
 	static constexpr const char *Name = "disable_database_invalidation";
 	static constexpr const char *Description =
 	    "Disables invalidating the database instance when encountering a fatal error. Should be used with great care, "
-	    "as DuckDB cannot guarantee correct behavior after a fatal error.";
+	    "as correct behavior cannot be guaranteed after a fatal error.";
 	static constexpr const char *InputType = "BOOLEAN";
 	static constexpr bool IsDebug = false;
 	static constexpr bool IsDeprecated = false;
@@ -1813,7 +1812,7 @@ struct ExternalFileCacheSpillSetting {
 struct ExternalThreadsSetting {
 	using RETURN_TYPE = idx_t;
 	static constexpr const char *Name = "external_threads";
-	static constexpr const char *Description = "The number of external threads that work on DuckDB tasks.";
+	static constexpr const char *Description = "The number of external threads that work on the database's tasks.";
 	static constexpr const char *InputType = "UBIGINT";
 	static constexpr bool IsDebug = false;
 	static constexpr bool IsDeprecated = false;
@@ -2191,8 +2190,7 @@ struct LateMaterializationMaxRowsSetting {
 struct LegacyDisableNullTypeSetting {
 	using RETURN_TYPE = bool;
 	static constexpr const char *Name = "legacy_disable_null_type";
-	static constexpr const char *Description = "When enabled, prevent the NULL type from leaving the binder. This was "
-	                                           "the default behavior prior to DuckDB v2.0.";
+	static constexpr const char *Description = "When enabled, prevent the NULL type from leaving the binder.";
 	static constexpr const char *InputType = "BOOLEAN";
 	static constexpr bool IsDebug = false;
 	static constexpr bool IsDeprecated = false;
@@ -2829,7 +2827,7 @@ struct StorageCompatibilityVersionSetting {
 	static constexpr const char *Name = "storage_compatibility_version";
 	static constexpr const char *Description =
 	    "Sets the DuckDB version for which data is serialized to the DuckDB file during checkpointing. Can differ from "
-	    "the version of the DuckDB instance.";
+	    "the version of the running database.";
 	static constexpr const char *InputType = "VARCHAR";
 	static constexpr bool IsDebug = false;
 	static constexpr bool IsDeprecated = false;
