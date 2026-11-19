@@ -199,16 +199,21 @@ bool NotNullExpressionAnalyzer::IsNotNull(LogicalOperator &op, const Expression 
 				return true;
 			}
 		}
-		auto table = get.GetTable();
-		if (!table) {
-			return false;
-		}
 		auto &column_index = get.GetColumnIndex(binding);
-		if (!column_index.HasPrimaryIndex() || column_index.HasChildren() ||
+		if (!column_index.HasPrimaryIndex() || column_index.HasChildren() || column_index.IsVirtualColumn() ||
 		    column_index.GetPrimaryIndex() == DConstants::INVALID_INDEX) {
 			return false;
 		}
-		auto stats = table->GetStatistics(context, column_index.GetPrimaryIndex());
+		unique_ptr<BaseStatistics> stats;
+		if (auto table = get.GetTable()) {
+			stats = table->GetStatistics(context, column_index.GetPrimaryIndex());
+		} else if (get.function.statistics_extended) {
+			// a scan without a table (e.g. of files) knows the statistics of its columns itself
+			TableFunctionGetStatisticsInput input(get.bind_data.get(), column_index);
+			stats = get.function.statistics_extended(context, input);
+		} else if (get.function.statistics) {
+			stats = get.function.statistics(context, get.bind_data.get(), column_index.GetPrimaryIndex());
+		}
 		// unknown statistics must not count as proof of non-nullability
 		return stats && stats->CanHaveNoNull() && !stats->CanHaveNull();
 	}

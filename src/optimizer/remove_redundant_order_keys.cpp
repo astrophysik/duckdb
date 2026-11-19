@@ -44,8 +44,9 @@ private:
 void ApplyFunctionalDependencies::VisitLogicalGet(LogicalGet &get) {
 	VisitOperatorChildren(get);
 
+	// the keys of any table its catalog enforces the unique constraints of - its scan produces each row once
 	auto table = get.GetTable();
-	if (!table || !table->IsDuckTable() || !get.projected_input.empty() || get.GetColumnIds().empty()) {
+	if (!table || !get.projected_input.empty() || get.GetColumnIds().empty()) {
 		return;
 	}
 	unordered_map<idx_t, ColumnBinding> column_bindings;

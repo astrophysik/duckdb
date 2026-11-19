@@ -1,0 +1,24 @@
+# name: test/parquet/parquet_single_file_not_null.test
+# description: NULL analysis asks a scan of one parquet file for the statistics of its columns
+# group: [parquet]
+
+require parquet
+
+statement ok
+COPY (SELECT 'abc' AS s, 1 AS k UNION ALL SELECT 'de', 2) TO '{TEST_DIR}/single_not_null.parquet';
+
+statement ok
+COPY (SELECT 'abc' AS s, 1 AS k UNION ALL SELECT 'de', NULL) TO '{TEST_DIR}/single_null.parquet';
+
+# decorrelating the EXISTS asks whether k can be NULL, which the scan answers from the statistics of the file
+query I
+SELECT count(*) FROM read_single_parquet_file('{TEST_DIR}/single_not_null.parquet') t1
+WHERE EXISTS (SELECT 1 FROM read_single_parquet_file('{TEST_DIR}/single_not_null.parquet') t2 WHERE t2.k = t1.k);
+----
+2
+
+query I
+SELECT count(*) FROM read_single_parquet_file('{TEST_DIR}/single_null.parquet') t1
+WHERE EXISTS (SELECT 1 FROM read_single_parquet_file('{TEST_DIR}/single_null.parquet') t2 WHERE t2.k = t1.k);
+----
+1
