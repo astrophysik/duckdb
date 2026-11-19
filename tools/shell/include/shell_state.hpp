@@ -258,7 +258,7 @@ public:
 	string agent_name;
 	//! The environment variable that switched agent mode on (e.g. "CLAUDECODE"), empty when forced with -agent
 	string agent_marker;
-	//! Whether DUCKDB_AGENT_MODE forced agent mode on or off (no -agent / -no-agent was given)
+	//! Whether the AGENT_MODE environment variable forced agent mode on or off (no -agent / -no-agent was given)
 	bool agent_mode_from_environment = false;
 	//! Whether an output mode was given on the command line (-csv, -json, ...): detected agent mode then stays off
 	bool output_mode_flag = false;
@@ -439,6 +439,10 @@ public:
 	//! The terminal height in rows, or 0 when it cannot be determined
 	idx_t GetScreenHeight();
 	idx_t GetMaxRenderWidth() const;
+	string EnvironmentVariable(const char *name) const;
+	string InitFileName() const;
+	string HistoryFileName() const;
+	string FormatHelpText(const string &text) const;
 	string GetSystemPager();
 	unique_ptr<PagerState> SetupPager();
 	static void StartPagerDisplay();

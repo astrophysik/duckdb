@@ -51,6 +51,7 @@
 #include <stdio.h>
 #include <assert.h>
 
+#include "duckdb/common/string_format.hpp"
 #include "duckdb/common/time_point.hpp"
 #include "duckdb/common/types/column/column_data_collection.hpp"
 #include "duckdb/common/file_system.hpp"
@@ -1493,12 +1494,29 @@ FILE *ShellState::OpenOutputFile(const char *zFile, int bTextMode) {
 	return f;
 }
 
-string ShellState::GetSystemPager() {
-	const char *duckdb_pager = getenv("DUCKDB_PAGER");
+string ShellState::EnvironmentVariable(const char *name) const {
+	return StringUtil::Upper(engine.name) + "_" + name;
+}
 
-	// Try DUCKDB_PAGER first (highest priority for env vars)
-	if (duckdb_pager && strlen(duckdb_pager) > 0) {
-		return duckdb_pager;
+string ShellState::InitFileName() const {
+	return "." + engine.name + "rc";
+}
+
+string ShellState::HistoryFileName() const {
+	return "." + engine.name + "_history";
+}
+
+string ShellState::FormatHelpText(const string &text) const {
+	auto result = StringUtil::Replace(text, "{ENV}", EnvironmentVariable(""));
+	return StringUtil::Replace(result, "{RC}", "~/" + InitFileName());
+}
+
+string ShellState::GetSystemPager() {
+	const char *shell_pager = getenv(EnvironmentVariable("PAGER").c_str());
+
+	// Try the shell's own PAGER variable first (highest priority for env vars)
+	if (shell_pager && strlen(shell_pager) > 0) {
+		return shell_pager;
 	}
 
 	// Try PAGER next
@@ -1529,8 +1547,10 @@ bool ShellState::ShouldUsePager() {
 	if (pager_command.empty()) {
 		pager_command = GetSystemPager();
 		if (pager_command.empty()) {
-			Print(PrintOutput::STDERR, "Warning: No pager configured. Set DUCKDB_PAGER or PAGER environment variable\n"
-			                           "or supply a command like `.pager 'less -SR'` or `.pager 'pspg --csv'`.\n");
+			PrintF(PrintOutput::STDERR,
+			       "Warning: No pager configured. Set %s or PAGER environment variable\n"
+			       "or supply a command like `.pager 'less -SR'` or `.pager 'pspg --csv'`.\n",
+			       EnvironmentVariable("PAGER"));
 			return false;
 		}
 	}
@@ -3313,7 +3333,7 @@ static string GetHomeDirectory() {
 
 string ShellState::GetDefaultDuckDBRC() {
 	duckdb::LocalFileSystem lfs;
-	return lfs.JoinPath(GetHomeDirectory(), ".duckdbrc");
+	return lfs.JoinPath(GetHomeDirectory(), InitFileName());
 }
 
 MetadataResult ShellState::FormatSQL(string &sql) {
@@ -3409,8 +3429,7 @@ bool ShellState::ProcessDuckDBRC(const char *file) {
 		path = ShellState::GetDefaultDuckDBRC();
 		if (path.empty()) {
 			// could not find home directory - return
-			PrintF(PrintOutput::STDERR, "-- warning: cannot find home directory;"
-			                            " cannot read ~/.duckdbrc\n");
+			PrintF(PrintOutput::STDERR, "-- warning: cannot find home directory; cannot read ~/%s\n", InitFileName());
 			return true;
 		}
 		file = path.c_str();
@@ -3617,10 +3636,11 @@ bool ShellState::DetectAgentEnvironment(string &agent_name, string &marker) {
 	return false;
 }
 
-//! DUCKDB_AGENT_MODE=1/0 (on/off, true/false, yes/no) forces agent mode on or off - like -agent / -no-agent, which
-//! take precedence. Unset, empty or "auto" leaves it to the auto-detection
+//! AGENT_MODE=1/0 (on/off, true/false, yes/no) under the shell's environment prefix forces agent mode on or off - like
+//! -agent / -no-agent, which take precedence. Unset, empty or "auto" leaves it to the auto-detection
 static OptionType AgentModeFromEnvironment(ShellState &state) {
-	auto value = getenv("DUCKDB_AGENT_MODE");
+	auto variable = state.EnvironmentVariable("AGENT_MODE");
+	auto value = getenv(variable.c_str());
 	if (!value || !value[0] || StringUtil::CIEquals(value, "auto")) {
 		return OptionType::DEFAULT;
 	}
@@ -3634,7 +3654,7 @@ static OptionType AgentModeFromEnvironment(ShellState &state) {
 			return OptionType::OFF;
 		}
 	}
-	state.PrintF(PrintOutput::STDERR, "warning: ignoring DUCKDB_AGENT_MODE=%s (expected 1, 0 or auto)\n", value);
+	state.PrintF(PrintOutput::STDERR, "warning: ignoring %s=%s (expected 1, 0 or auto)\n", variable, value);
 	return OptionType::DEFAULT;
 }
 
@@ -3679,11 +3699,11 @@ void ShellState::PrintAgentHelp(PrintOutput output, bool startup) {
 		// one line, on every run: that the shell switched modes on its own, why, how to undo it, where the rest is.
 		// A model keeps its context between runs, so the explanation is paid for once through .help agent
 		if (agent_marker.empty()) {
-			PrintF(output, "duckdb agent mode on (%s); .help agent explains the output\n",
-			       agent_mode_from_environment ? "DUCKDB_AGENT_MODE is set" : "-agent");
+			PrintF(output, "agent mode on (%s); .help agent explains the output\n",
+			       agent_mode_from_environment ? EnvironmentVariable("AGENT_MODE") + " is set" : string("-agent"));
 		} else {
 			PrintF(output,
-			       "duckdb agent mode on: %s is set and stdout is not a terminal; -no-agent turns it off, .help agent "
+			       "agent mode on: %s is set and stdout is not a terminal; -no-agent turns it off, .help agent "
 			       "explains the output\n",
 			       agent_marker);
 		}
@@ -3705,9 +3725,10 @@ void ShellState::PrintAgentHelp(PrintOutput output, bool startup) {
 	       "without running it; SUMMARIZE <table>; .tables; %s() has descriptions and examples\n",
 	       duckdb::DBConfig::GetConfig(*conn->context).SystemObjectName("functions"));
 	PrintF(output,
-	       "switches: -agent / -no-agent force the mode, and so does DUCKDB_AGENT_MODE=1 / 0 in the environment "
+	       "switches: -agent / -no-agent force the mode, and so does %s=1 / 0 in the environment "
 	       "(the flags win); an output mode flag (-csv, -json, ...) leaves it off; .startup_text none in "
-	       "~/.duckdbrc hides the startup line\n");
+	       "~/%s hides the startup line\n",
+	       EnvironmentVariable("AGENT_MODE"), InitFileName());
 }
 
 void ShellState::PrintExitHint(int rc) {
@@ -4032,7 +4053,7 @@ int RunShell(int argc, char **argv, ShellSubcommand subcommand, ShellEngine engi
 					    "Missing Argument Error: Argument '-%s' needs %llu arguments, but got %llu\n", option.option,
 					    option.argument_count, arg_idx);
 					error += StringUtil::Format("OPTION:\n  -%s %s    %s\n\n", option.option, option.arguments,
-					                            option.description);
+					                            data.FormatHelpText(option.description));
 					error += StringUtil::Format("Run '%s -help' for a list of options.\n", data.program_name);
 					data.PrintDatabaseError(error);
 					return 1;
@@ -4226,9 +4247,9 @@ int RunShell(int argc, char **argv, ShellSubcommand subcommand, ShellEngine engi
 				highlight.PrintText("Enter \".help\" for usage hints.\n", PrintOutput::STDOUT,
 				                    HighlightElementType::STARTUP_TEXT);
 			}
-			zHistory = getenv("DUCKDB_HISTORY");
+			zHistory = getenv(data.EnvironmentVariable("HISTORY").c_str());
 			if (!zHistory) {
-				zHome = GetHomeDirectory() + "/.duckdb_history";
+				zHome = GetHomeDirectory() + "/" + data.HistoryFileName();
 				zHistory = zHome.c_str();
 			}
 			if (zHistory) {

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 
 #include "duckdb/main/config.hpp"
 #include "duckdb/main/database.hpp"
@@ -20,6 +21,7 @@ enum class ShellSubcommand : uint8_t {
 struct ShellEngine {
 	duckdb::shared_ptr<duckdb::DatabaseInstance> (*open)(const std::string &path);
 	void (*close)();
+	std::string name = "duckdb";
 };
 
 // Public entry point. Parses argv, opens the database, runs init / -cmd /

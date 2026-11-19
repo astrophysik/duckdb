@@ -642,8 +642,8 @@ static const CommandLineOption psql_options[] = {
      "(psql) record separator for unaligned output"},
     {"o", 1, "FILENAME", nullptr, PsqlOutputFile, "(psql) send query results to FILE"},
     {"output", 1, "FILENAME", nullptr, PsqlOutputFile, "(psql) send query results to FILE"},
-    {"X", 0, "", SkipInit, nullptr, "(psql) do not read startup file (~/.duckdbrc)"},
-    {"no-psqlrc", 0, "", SkipInit, nullptr, "(psql) do not read startup file (~/.duckdbrc)"},
+    {"X", 0, "", SkipInit, nullptr, "(psql) do not read startup file ({RC})"},
+    {"no-psqlrc", 0, "", SkipInit, nullptr, "(psql) do not read startup file ({RC})"},
     {"l", 0, "", EnableBatch, PsqlListDatabases, "(psql) list available databases, then exit"},
     {"list", 0, "", EnableBatch, PsqlListDatabases, "(psql) list available databases, then exit"},
     {"1", 0, "", PsqlSingleTransaction, nullptr, "(psql) execute as a single transaction (if non-interactive)"},
@@ -695,8 +695,7 @@ static const CommandLineOption command_line_options[] = {
     {"agent", 0, "", SetAgentMode<OptionType::ON>, nullptr,
      "render output for an AI coding agent (compact markdown tables with a loud row/byte cap and a result hash, "
      "JSON errors, compact plans, cost estimates and progress on stderr). Default: on when an agent's environment "
-     "variable is set, stdout is not a terminal and no output mode is given; DUCKDB_AGENT_MODE=1 / 0 forces it on / "
-     "off"},
+     "variable is set, stdout is not a terminal and no output mode is given; {ENV}AGENT_MODE=1 / 0 forces it on / off"},
     {"ascii", 0, "", MarkOutputModeFlag, ToggleASCIIMode, "set output mode to 'ascii'"},
     {"bail", 0, "", nullptr, EnableBail, "stop after hitting an error"},
     {"batch", 0, "", EnableBatch, EnableBatch, "force batch I/O"},
@@ -895,7 +894,7 @@ static void PrintPsqlEntry(ShellState &state, ShellHighlight &h, const string &l
 		i = gt + 1;
 	}
 
-	auto lines = StringUtil::Split(desc, '\n');
+	auto lines = StringUtil::Split(state.FormatHelpText(desc), '\n');
 	const string indent(PSQL_DESC_COL, ' ');
 	for (idx_t row = 0; row < lines.size(); row++) {
 		if (row == 0) {
@@ -992,8 +991,8 @@ static void PrintShellSections(ShellState &state) {
 	entry("  -c, --command=<COMMAND>", "run only single command (SQL or internal) and exit");
 	entry("  -f, --file=<FILENAME>", "execute commands from file, then exit");
 	entry("      --cmd=<COMMAND>", "run COMMAND before reading stdin (pre-init, does not exit)");
-	entry("      --init=<FILENAME>", "pre-init from file (overrides default ~/.duckdbrc lookup)");
-	entry("  -X, --no-psqlrc / --no-init", "do not read startup file (~/.duckdbrc)");
+	entry("      --init=<FILENAME>", "pre-init from file (overrides default {RC} lookup)");
+	entry("  -X, --no-psqlrc / --no-init", "do not read startup file ({RC})");
 	entry("      --bail", "stop after hitting an error");
 	entry("  -1 (\"one\"), --single-transaction", "wrap -c/-f batch in BEGIN/COMMIT (if non-interactive)");
 	entry("      --format", "format SQL from stdin, writing result to stdout");
@@ -1020,13 +1019,13 @@ static void PrintPsqlSections(ShellState &state) {
 	entry("  -d, --dbname=<DBNAME>", "database name (default: $PGDATABASE or USERNAME)");
 	entry("  -f, --file=<FILENAME>", "execute commands from file, then exit");
 	entry("      --cmd=<COMMAND>", "run COMMAND before reading stdin (pre-init, does not exit)");
-	entry("      --init=<FILENAME>", "pre-init from file (overrides default ~/.duckdbrc lookup)");
+	entry("      --init=<FILENAME>", "pre-init from file (overrides default {RC} lookup)");
 	entry("      --bail", "stop after hitting an error");
 	entry("      --format", "format SQL from stdin, writing result to stdout");
 	entry("      --format-file=<FILENAME>", "format SQL in file, writing result to stdout");
 	entry("  -l, --list", "list available databases, then exit");
 	entry("  -V, --version", "output version information, then exit");
-	entry("  -X, --no-psqlrc / --no-init", "do not read startup file (~/.duckdbrc)");
+	entry("  -X, --no-psqlrc / --no-init", "do not read startup file ({RC})");
 	entry("  -1 (\"one\"), --single-transaction", "execute as a single transaction (if non-interactive)");
 	entry("  -?, --help[=<options>]", "show this help, then exit");
 	entry("      --help=interactive", "list interactive (dot) commands, then exit");
@@ -1056,7 +1055,7 @@ static void PrintNotes(ShellState &state, ShellHighlight &h) {
 		state.PrintF("  * pg-wire client; auto-connects on startup (host/port/dbname/user\n"
 		             "    resolved from flags or PG* env vars). For a local-only shell, use\n"
 		             "    `serenedb shell`.\n"
-		             "  * Accepts DuckDB shell flags too -- --cmd, --init, --bail, --format,\n"
+		             "  * Accepts `serenedb shell` flags too -- --cmd, --init, --bail, --format,\n"
 		             "    --MODE, the whole Database options section, and more.\n"
 		             "  * In this mode: -h is host, -l lists databases, -s is single-step\n"
 		             "    (no-op). All three mean something different in `serenedb shell`.\n"

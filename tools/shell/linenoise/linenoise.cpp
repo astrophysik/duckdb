@@ -1985,7 +1985,7 @@ void Linenoise::LogTokens(const vector<highlightToken> &tokens) {
 bool Linenoise::EditFileWithEditor(std::string_view file_name, const char *editor) {
 	/* Find an editor to use */
 	if (!editor) {
-		editor = getenv("DUCKDB_EDITOR");
+		editor = getenv(duckdb_shell::ShellState::Get().EnvironmentVariable("EDITOR").c_str());
 	}
 	if (!editor) {
 		editor = getenv("EDITOR");
