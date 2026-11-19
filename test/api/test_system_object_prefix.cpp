@@ -138,3 +138,29 @@ TEST_CASE("The SQL formatter takes the system object prefix", "[api][system_obje
 	REQUIRE(StringUtil::Contains(result->GetError(), "serenedb_format_sql: keyword_case"));
 	REQUIRE_FAIL(con.Query("SELECT duckdb_format_sql('select 1')"));
 }
+
+TEST_CASE("Log files take the system object prefix", "[api][system_object_prefix]") {
+	auto db = OpenDatabase("serenedb_");
+	Connection con(*db);
+	auto dir = TestCreatePath("system_object_prefix_logs");
+	REQUIRE_NO_FAIL(con.Query("CALL enable_logging(['QueryLog'], storage='file', storage_config={'path': '" + dir +
+	                          "', 'normalize': true})"));
+	REQUIRE_NO_FAIL(con.Query("SELECT 42"));
+	auto result = con.Query("SELECT count(*) > 0 FROM read_csv('" + dir + "/serenedb_log_entries.csv')");
+	REQUIRE(CHECK_COLUMN(result, 0, {true}));
+	result = con.Query("SELECT count(*) > 0 FROM read_csv('" + dir + "/serenedb_log_contexts.csv')");
+	REQUIRE(CHECK_COLUMN(result, 0, {true}));
+	result = con.Query("SELECT count(*) FROM glob('" + dir + "/duckdb_*')");
+	REQUIRE(CHECK_COLUMN(result, 0, {0}));
+}
+
+TEST_CASE("The user agent names the configured product", "[api][system_object_prefix]") {
+	auto config = GetTestConfig();
+	config->options.product_name = "SereneDB";
+	config->options.product_version = "26.11.0";
+	DuckDB db(nullptr, config.get());
+	Connection con(db);
+	auto result = con.Query("PRAGMA user_agent");
+	REQUIRE_NO_FAIL(*result);
+	REQUIRE(StringUtil::StartsWith(result->GetValue(0, 0).ToString(), "serenedb/26.11.0("));
+}

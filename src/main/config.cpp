@@ -905,12 +905,10 @@ OrderByNullType DBConfig::ResolveNullOrder(ClientContext &context, OrderType ord
 	}
 }
 
-string GetDefaultUserAgent() {
-	return StringUtil::Format("duckdb/%s(%s)", DuckDB::LibraryVersion(), DuckDB::Platform());
-}
-
 const string DBConfig::UserAgent() const {
-	auto user_agent = GetDefaultUserAgent();
+	auto version = options.product_version.empty() ? string(DuckDB::LibraryVersion()) : options.product_version;
+	auto user_agent =
+	    StringUtil::Format("%s/%s(%s)", StringUtil::Lower(options.product_name), version, DuckDB::Platform());
 
 	auto duckdb_api = Settings::Get<DuckDBAPISetting>(*this);
 	if (!duckdb_api.empty()) {

@@ -6,21 +6,24 @@
 using namespace duckdb;
 
 TEST_CASE("Test temporary file owners", "[api]") {
+	const string name_prefix = "duckdb_temp_";
+
 	SECTION("a name round-trips through its owner") {
 		set<string> prefixes;
 		for (int64_t pid = 1; pid < 64; pid++) {
 			for (idx_t instance = 0; instance < 64; instance++) {
 				TemporaryFileOwner written {pid, instance};
-				auto prefix = TemporaryFilePrefix(written);
+				auto prefix = TemporaryFilePrefix(name_prefix, written);
 				prefixes.insert(prefix);
 
 				TemporaryFileOwner parsed;
-				REQUIRE(TryParseTemporaryFileOwner(prefix + "storage_DEFAULT-0.tmp", parsed));
+				REQUIRE(TryParseTemporaryFileOwner(name_prefix, prefix + "storage_DEFAULT-0.tmp", parsed));
 				REQUIRE(parsed == written);
-				REQUIRE(TryParseTemporaryFileOwner(prefix + "block-7.block", parsed));
+				REQUIRE(TryParseTemporaryFileOwner(name_prefix, prefix + "block-7.block", parsed));
 				REQUIRE(parsed == written);
 				// the marker is swept like any other file of a dead owner, so it must parse too
-				REQUIRE(TryParseTemporaryFileOwner(TemporaryOwnerMarkerName(written), parsed));
+				REQUIRE(
+				    TryParseTemporaryFileOwner(name_prefix, TemporaryOwnerMarkerName(name_prefix, written), parsed));
 				REQUIRE(parsed == written);
 			}
 		}
@@ -31,12 +34,23 @@ TEST_CASE("Test temporary file owners", "[api]") {
 	SECTION("names that do not carry an owner are not claimed") {
 		// a version that named its files differently may still be running and using them
 		TemporaryFileOwner parsed;
-		REQUIRE(!TryParseTemporaryFileOwner("duckdb_temp_5ee2fed7-f0e1-4e7f-9399-d813d74cee53_storage_DEFAULT-0.tmp",
-		                                    parsed));
-		REQUIRE(!TryParseTemporaryFileOwner("duckdb_temp_storage_DEFAULT-0.tmp", parsed));
-		REQUIRE(!TryParseTemporaryFileOwner("duckdb_temp_block-1.block", parsed));
-		REQUIRE(!TryParseTemporaryFileOwner("duckdb_temp_-1_0_storage_DEFAULT-0.tmp", parsed));
-		REQUIRE(!TryParseTemporaryFileOwner("duckdb_temp_1_ _storage_DEFAULT-0.tmp", parsed));
-		REQUIRE(!TryParseTemporaryFileOwner("something_else.tmp", parsed));
+		REQUIRE(!TryParseTemporaryFileOwner(
+		    name_prefix, "duckdb_temp_5ee2fed7-f0e1-4e7f-9399-d813d74cee53_storage_DEFAULT-0.tmp", parsed));
+		REQUIRE(!TryParseTemporaryFileOwner(name_prefix, "duckdb_temp_storage_DEFAULT-0.tmp", parsed));
+		REQUIRE(!TryParseTemporaryFileOwner(name_prefix, "duckdb_temp_block-1.block", parsed));
+		REQUIRE(!TryParseTemporaryFileOwner(name_prefix, "duckdb_temp_-1_0_storage_DEFAULT-0.tmp", parsed));
+		REQUIRE(!TryParseTemporaryFileOwner(name_prefix, "duckdb_temp_1_ _storage_DEFAULT-0.tmp", parsed));
+		REQUIRE(!TryParseTemporaryFileOwner(name_prefix, "something_else.tmp", parsed));
+	}
+
+	SECTION("a database names its files under its system object prefix") {
+		TemporaryFileOwner written {7, 3};
+		TemporaryFileOwner parsed;
+		auto prefix = TemporaryFilePrefix("sdb_temp_", written);
+		REQUIRE(prefix == "sdb_temp_7_3_");
+		REQUIRE(TryParseTemporaryFileOwner("sdb_temp_", prefix + "storage_DEFAULT-0.tmp", parsed));
+		REQUIRE(parsed == written);
+		// another prefix's files belong to another configuration's instances
+		REQUIRE(!TryParseTemporaryFileOwner(name_prefix, prefix + "storage_DEFAULT-0.tmp", parsed));
 	}
 }

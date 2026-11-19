@@ -393,14 +393,17 @@ void FileLogStorage::SetPaths(const string &base_path) {
 	}
 
 	LocalFileSystem fs;
+	auto &config = DBConfig::GetConfig(db);
+	auto entries_path = fs.JoinPath(base_path, config.SystemObjectName("log_entries.csv"));
 	if (normalize_contexts) {
-		tables[LoggingTargetTable::LOG_CONTEXTS].path = fs.JoinPath(base_path, "duckdb_log_contexts.csv");
-		tables[LoggingTargetTable::LOG_ENTRIES].path = fs.JoinPath(base_path, "duckdb_log_entries.csv");
+		tables[LoggingTargetTable::LOG_CONTEXTS].path =
+		    fs.JoinPath(base_path, config.SystemObjectName("log_contexts.csv"));
+		tables[LoggingTargetTable::LOG_ENTRIES].path = entries_path;
 	} else {
 		if (StringUtil::EndsWith(base_path, ".csv")) {
 			tables[LoggingTargetTable::ALL_LOGS].path = base_path;
 		} else {
-			tables[LoggingTargetTable::LOG_ENTRIES].path = fs.JoinPath(base_path, "duckdb_log_entries.csv");
+			tables[LoggingTargetTable::LOG_ENTRIES].path = entries_path;
 		}
 	}
 }
@@ -437,8 +440,8 @@ void FileLogStorage::UpdateConfigInternal(DatabaseInstance &db, case_insensitive
 
 	if (StringUtil::EndsWith(new_path, ".csv") && normalize_contexts_new_value) {
 		throw InvalidConfigurationException(
-		    "Can not set path to '%s' while normalize is true. Normalize will make DuckDB write multiple log files to "
-		    "more efficiently store log entries. Please specify a directory path instead of a csv file path, or set "
+		    "Can not set path to '%s' while normalize is true. Normalize writes multiple log files to more "
+		    "efficiently store log entries. Please specify a directory path instead of a csv file path, or set "
 		    "normalize to false.",
 		    new_path);
 	}

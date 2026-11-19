@@ -729,16 +729,16 @@ void TemporaryFileManager::EraseUsedBlock(TemporaryFileManagerLock &lock, block_
 	}
 }
 
-//! an array rather than a pointer, so the length below is derived from it and cannot drift
-static constexpr const char TEMPORARY_FILE_PREFIX[] = "duckdb_temp_";
-static constexpr idx_t TEMPORARY_FILE_PREFIX_LENGTH = sizeof(TEMPORARY_FILE_PREFIX) - 1;
-
-string TemporaryFilePrefix(const TemporaryFileOwner &owner) {
-	return TEMPORARY_FILE_PREFIX + to_string(owner.pid) + "_" + to_string(owner.instance) + "_";
+static string TemporaryFileNamePrefix(DatabaseInstance &db) {
+	return DBConfig::GetConfig(db).SystemObjectName("temp_");
 }
 
-string TemporaryOwnerMarkerName(const TemporaryFileOwner &owner) {
-	return TemporaryFilePrefix(owner) + "owner";
+string TemporaryFilePrefix(const string &file_prefix, const TemporaryFileOwner &owner) {
+	return file_prefix + to_string(owner.pid) + "_" + to_string(owner.instance) + "_";
+}
+
+string TemporaryOwnerMarkerName(const string &file_prefix, const TemporaryFileOwner &owner) {
+	return TemporaryFilePrefix(file_prefix, owner) + "owner";
 }
 
 //! Only unsigned decimal, so nothing a version naming its files differently wrote can parse
@@ -757,11 +757,11 @@ static bool TryParseDecimal(const string &text, uint64_t &result) {
 	return true;
 }
 
-bool TryParseTemporaryFileOwner(const string &file_name, TemporaryFileOwner &owner) {
-	if (!StringUtil::StartsWith(file_name, TEMPORARY_FILE_PREFIX)) {
+bool TryParseTemporaryFileOwner(const string &file_prefix, const string &file_name, TemporaryFileOwner &owner) {
+	if (!StringUtil::StartsWith(file_name, file_prefix)) {
 		return false;
 	}
-	auto pid_end = file_name.find('_', TEMPORARY_FILE_PREFIX_LENGTH);
+	auto pid_end = file_name.find('_', file_prefix.size());
 	if (pid_end == string::npos) {
 		return false;
 	}
@@ -770,7 +770,7 @@ bool TryParseTemporaryFileOwner(const string &file_name, TemporaryFileOwner &own
 		return false;
 	}
 	uint64_t pid, instance;
-	if (!TryParseDecimal(file_name.substr(TEMPORARY_FILE_PREFIX_LENGTH, pid_end - TEMPORARY_FILE_PREFIX_LENGTH), pid) ||
+	if (!TryParseDecimal(file_name.substr(file_prefix.size(), pid_end - file_prefix.size()), pid) ||
 	    !TryParseDecimal(file_name.substr(pid_end + 1, instance_end - pid_end - 1), instance)) {
 		// written by a version that did not name its files after their owner - a UUID carries '-',
 		// which is not a decimal digit, so those land here too
@@ -846,13 +846,14 @@ TemporaryDirectoryHandle::TemporaryDirectoryHandle(DatabaseInstance &db, string 
 
 void TemporaryDirectoryHandle::ClaimOwner() {
 	auto &fs = FileSystem::GetFileSystem(db);
+	auto name_prefix = TemporaryFileNamePrefix(db);
 	owner.pid = ProcessUtil::CurrentProcessId();
 	// Creating the marker is what claims the id, because it is the only step that is atomic against
 	// an instance that shares our pid but not our counter - two copies of duckdb in one process each
 	// count from zero. It is not locked, and nothing ever opens anybody else's: existing is its job.
 	for (;;) {
 		owner.instance = NextInstanceId();
-		auto marker_path = fs.JoinPath(temp_directory, TemporaryOwnerMarkerName(owner));
+		auto marker_path = fs.JoinPath(temp_directory, TemporaryOwnerMarkerName(name_prefix, owner));
 		try {
 			auto marker = fs.OpenFile(marker_path, FileFlags::FILE_FLAGS_WRITE | FileFlags::FILE_FLAGS_FILE_CREATE_NEW);
 			marker->Close();
@@ -864,16 +865,17 @@ void TemporaryDirectoryHandle::ClaimOwner() {
 			}
 		}
 	}
-	file_prefix = TemporaryFilePrefix(owner);
+	file_prefix = TemporaryFilePrefix(name_prefix, owner);
 }
 
 vector<string> TemporaryDirectoryHandle::ListOwnFiles() {
 	auto &fs = FileSystem::GetFileSystem(db);
-	auto marker_name = TemporaryOwnerMarkerName(owner);
+	auto name_prefix = TemporaryFileNamePrefix(db);
+	auto marker_name = TemporaryOwnerMarkerName(name_prefix, owner);
 	vector<string> result;
 	fs.ListFiles(temp_directory, [&](const string &name, bool is_dir) {
 		TemporaryFileOwner found;
-		if (is_dir || !TryParseTemporaryFileOwner(name, found) || !(found == owner)) {
+		if (is_dir || !TryParseTemporaryFileOwner(name_prefix, name, found) || !(found == owner)) {
 			return;
 		}
 		if (name == marker_name) {
@@ -888,11 +890,12 @@ vector<string> TemporaryDirectoryHandle::ListOwnFiles() {
 void TemporaryDirectoryHandle::SweepAbandonedInstances() {
 	auto &fs = FileSystem::GetFileSystem(db);
 	try {
+		auto name_prefix = TemporaryFileNamePrefix(db);
 		// the instance an id belongs to never affects the verdict, only the process it ran in does
 		unordered_map<int64_t, vector<string>> by_pid;
 		fs.ListFiles(temp_directory, [&](const string &name, bool is_dir) {
 			TemporaryFileOwner found;
-			if (!is_dir && TryParseTemporaryFileOwner(name, found)) {
+			if (!is_dir && TryParseTemporaryFileOwner(name_prefix, name, found)) {
 				by_pid[found.pid].push_back(fs.JoinPath(temp_directory, name));
 			}
 		});
@@ -933,7 +936,7 @@ void TemporaryDirectoryHandle::CleanupTemporaryDirectory() {
 	fs.RemoveFiles(ListOwnFiles());
 	// the claim goes last - while it stands nobody can take our id and create a file under our name
 	// that we would then delete out from under them
-	fs.TryRemoveFile(fs.JoinPath(temp_directory, TemporaryOwnerMarkerName(owner)));
+	fs.TryRemoveFile(fs.JoinPath(temp_directory, TemporaryOwnerMarkerName(TemporaryFileNamePrefix(db), owner)));
 	if (created_directory) {
 		// only if nothing else is in it: another instance may have joined us here, and removing the
 		// directory is recursive - it would take their files with it

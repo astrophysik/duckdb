@@ -52,16 +52,18 @@ struct TemporaryFileOwner {
 	}
 };
 
-//! "duckdb_temp_<pid>_<instance>_", the start of every temporary file name. It keeps instances
+//! "<system object prefix>temp_<pid>_<instance>_" (the prefix ends in its own underscore: duckdb_temp_42_0_ by
+//! default), the start of every temporary file name. It keeps instances
 //! sharing a temp_directory off each other's paths, and says who to ask whether they are still live.
-DUCKDB_API string TemporaryFilePrefix(const TemporaryFileOwner &owner);
+DUCKDB_API string TemporaryFilePrefix(const string &file_prefix, const TemporaryFileOwner &owner);
 //! An empty file that exists for as long as an instance uses the directory. Creating it exclusively
 //! is what claims an id; no file of an instance's own is proof, since every one of them can be
 //! deleted again while the instance is still live and about to write more.
-DUCKDB_API string TemporaryOwnerMarkerName(const TemporaryFileOwner &owner);
+DUCKDB_API string TemporaryOwnerMarkerName(const string &file_prefix, const TemporaryFileOwner &owner);
 //! Extracts the owner, if the name carries one. Names from a version that did not name files after
 //! their owner do not, and are left alone: a running instance of that version may still own them.
-DUCKDB_API bool TryParseTemporaryFileOwner(const string &file_name, TemporaryFileOwner &owner);
+DUCKDB_API bool TryParseTemporaryFileOwner(const string &file_prefix, const string &file_name,
+                                           TemporaryFileOwner &owner);
 
 //===--------------------------------------------------------------------===//
 // TemporaryFileIdentifier/TemporaryFileIndex
