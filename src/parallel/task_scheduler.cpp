@@ -41,6 +41,8 @@ struct SchedulerWorker {
 	const bool spare;
 	shared_ptr<SchedulerAccount> account;
 	shared_ptr<SchedulerAccount> handoff;
+	bool handoff_claimed = false;
+	SchedulerWorker *next_woken = nullptr;
 	int64_t bound_used = 0;
 	bool rotate = false;
 	bool arrival_leave = false;
@@ -216,7 +218,6 @@ bool TaskScheduler::GetTaskFromProducerLocked(ProducerToken &token, shared_ptr<T
 
 void TaskScheduler::Wake(idx_t count, optional_ptr<SchedulerAccount> account) {
 #ifndef DUCKDB_NO_THREADS
-	static thread_local vector<SchedulerWorker *> wake_list;
 	const auto slots = target.load(std::memory_order_relaxed);
 	const auto pending = waking.load(std::memory_order_relaxed);
 	const auto busy = running.load(std::memory_order_relaxed) + pending;
@@ -232,17 +233,20 @@ void TaskScheduler::Wake(idx_t count, optional_ptr<SchedulerAccount> account) {
 		}
 		worker.woken.store(true, std::memory_order_release);
 		waking.fetch_add(1, std::memory_order_relaxed);
-		wake_list.push_back(&worker);
+		worker.semaphore.signal();
 		count--;
 	}
-	for (auto worker : wake_list) {
-		worker->semaphore.signal();
-	}
-	wake_list.clear();
 	while (count > 0 && SpawnSpare()) {
 		count--;
 	}
 #endif
+}
+
+void TaskScheduler::ReleaseHandoff(SchedulerWorker &worker) {
+	auto account = std::move(worker.handoff);
+	if (std::exchange(worker.handoff_claimed, false) && queue.Leave(*account)) {
+		Wake(1, account.get());
+	}
 }
 
 bool TaskScheduler::SpawnSpare() {
@@ -272,7 +276,6 @@ bool TaskScheduler::RetireSpare(SchedulerWorker &worker, bool force) {
 
 void TaskScheduler::WakeAll() {
 #ifndef DUCKDB_NO_THREADS
-	vector<SchedulerWorker *> wake_list;
 	for (idx_t word = 0; word < WORKER_WORDS; word++) {
 		auto bits = idle_bits[word].exchange(0, std::memory_order_seq_cst);
 		while (bits) {
@@ -282,11 +285,8 @@ void TaskScheduler::WakeAll() {
 			auto worker = workers[word * 64 + bit].load(std::memory_order_acquire);
 			worker->woken.store(true, std::memory_order_release);
 			waking.fetch_add(1, std::memory_order_relaxed);
-			wake_list.push_back(worker);
+			worker->semaphore.signal();
 		}
-	}
-	for (auto worker : wake_list) {
-		worker->semaphore.signal();
 	}
 #endif
 }
@@ -313,18 +313,80 @@ void TaskScheduler::Leave(SchedulerWorker &worker) {
 bool TaskScheduler::Rebind(SchedulerWorker &worker) {
 	Leave(worker);
 	const bool arrival = worker.arrival_leave;
-	if (!arrival && (!queue.HasListed() || !queue.HasQueuedTasks())) {
-		return false;
-	}
-	{
-		const annotated_lock_guard<annotated_mutex> guard(queue.lock);
-		worker.account = queue.Select();
+	if (arrival || (queue.HasListed() && queue.HasQueuedTasks())) {
+		worker.account = Dispatch();
 	}
 	if (arrival) {
 		worker.arrival_leave = false;
 		queue.Arrived();
 	}
 	return worker.account != nullptr;
+}
+
+bool TaskScheduler::LockToDispatch() {
+	if (queue.lock.try_lock()) {
+		return true;
+	}
+	if (lock_waiter.load(std::memory_order_seq_cst) || lock_waiter.exchange(true, std::memory_order_seq_cst)) {
+		return false;
+	}
+	queue.lock.lock();
+	lock_waiter.store(false, std::memory_order_seq_cst);
+	return true;
+}
+
+shared_ptr<SchedulerAccount> TaskScheduler::Dispatch() {
+	if (!LockToDispatch()) {
+		return nullptr;
+	}
+	queue.selecting.store(true, std::memory_order_seq_cst);
+	auto selected = queue.Select();
+	auto woken = HandOffListed(selected ? 1 : 0);
+	queue.selecting.store(false, std::memory_order_seq_cst);
+	queue.lock.unlock();
+	while (woken) {
+		std::exchange(woken, woken->next_woken)->semaphore.signal();
+	}
+	if (queue.HasListed() && queue.HasQueuedTasks()) {
+		Wake(1, nullptr);
+	}
+	return selected;
+}
+
+SchedulerWorker *TaskScheduler::HandOffListed(idx_t reserved) {
+	SchedulerWorker *woken = nullptr;
+#ifndef DUCKDB_NO_THREADS
+	while (idle_count.load(std::memory_order_seq_cst) != 0) {
+		const auto pending = waking.load(std::memory_order_relaxed);
+		const auto busy = running.load(std::memory_order_relaxed) + pending;
+		if (busy >= target.load(std::memory_order_relaxed) || queue.GetTasksInQueue() <= pending + reserved) {
+			break;
+		}
+		idx_t index;
+		if (!ClaimIdle(index)) {
+			break;
+		}
+		idle_count.fetch_sub(1, std::memory_order_relaxed);
+		auto account = queue.Select();
+		if (!account) {
+			RestoreIdle(index);
+			break;
+		}
+		auto &worker = *workers[index].load(std::memory_order_acquire);
+		worker.handoff = std::move(account);
+		worker.handoff_claimed = true;
+		worker.woken.store(true, std::memory_order_release);
+		waking.fetch_add(1, std::memory_order_relaxed);
+		worker.next_woken = woken;
+		woken = &worker;
+	}
+#endif
+	return woken;
+}
+
+void TaskScheduler::RestoreIdle(idx_t index) {
+	idle_bits[index / 64].fetch_or(uint64_t(1) << (index % 64), std::memory_order_seq_cst);
+	idle_count.fetch_add(1, std::memory_order_seq_cst);
 }
 
 void TaskScheduler::ReleaseClaims(SchedulerWorker &worker) {
@@ -334,6 +396,7 @@ void TaskScheduler::ReleaseClaims(SchedulerWorker &worker) {
 }
 
 void TaskScheduler::Unbind(SchedulerWorker &worker) {
+	ReleaseHandoff(worker);
 	Leave(worker);
 	if (worker.arrival_leave) {
 		{
@@ -353,9 +416,11 @@ bool TaskScheduler::TakeTask(SchedulerWorker &worker, shared_ptr<Task> &task) {
 	if (worker.handoff) {
 		if (!worker.account) {
 			worker.account = std::move(worker.handoff);
-			queue.Attach(*worker.account);
+			if (!std::exchange(worker.handoff_claimed, false)) {
+				queue.Attach(*worker.account);
+			}
 		}
-		worker.handoff.reset();
+		ReleaseHandoff(worker);
 	}
 	if (worker.rotate && !Rebind(worker)) {
 		return false;
@@ -526,7 +591,8 @@ bool TaskScheduler::Park(SchedulerWorker &worker) {
 	idle_bits[worker.index / 64].fetch_or(uint64_t(1) << (worker.index % 64), std::memory_order_seq_cst);
 	idle_count.fetch_add(1, std::memory_order_seq_cst);
 	const auto busy = running.load(std::memory_order_relaxed) + waking.load(std::memory_order_relaxed);
-	if (queue.HasQueuedTasks() && busy < target.load(std::memory_order_relaxed)) {
+	if (queue.HasQueuedTasks() && busy < target.load(std::memory_order_relaxed) && queue.HasListed() &&
+	    !queue.Selecting() && !lock_waiter.load(std::memory_order_seq_cst)) {
 		if (ClearIdle(worker.index)) {
 			idle_count.fetch_sub(1, std::memory_order_relaxed);
 			return true;

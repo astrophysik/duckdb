@@ -77,7 +77,12 @@ public:
 		return NumericCast<idx_t>(MaxValue<int64_t>(queued.load(std::memory_order_relaxed), 0));
 	}
 
+	bool Selecting() const {
+		return selecting.load(std::memory_order_seq_cst);
+	}
+
 	annotated_mutex lock;
+	atomic<bool> selecting {false};
 
 private:
 	struct Level {

@@ -143,6 +143,11 @@ private:
 	void ReleaseSlot(SchedulerWorker &worker);
 	void ReacquireSlot(SchedulerWorker &worker);
 	void Wake(idx_t count, optional_ptr<SchedulerAccount> account);
+	void ReleaseHandoff(SchedulerWorker &worker);
+	bool LockToDispatch() DUCKDB_TRY_ACQUIRE(true, queue.lock);
+	shared_ptr<SchedulerAccount> Dispatch();
+	SchedulerWorker *HandOffListed(idx_t reserved) DUCKDB_REQUIRES(queue.lock);
+	void RestoreIdle(idx_t index);
 	bool Register(SchedulerWorker &worker);
 	void Unregister(SchedulerWorker &worker);
 	bool ClearIdle(idx_t index);
@@ -166,6 +171,7 @@ private:
 	array<atomic<uint64_t>, WORKER_WORDS> registered {};
 	array<atomic<uint64_t>, WORKER_WORDS> idle_bits {};
 	atomic<idx_t> idle_count {0};
+	atomic<bool> lock_waiter {false};
 	atomic<idx_t> waking {0};
 	atomic<idx_t> blocked {0};
 	atomic<idx_t> spares {0};
