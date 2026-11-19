@@ -75,7 +75,7 @@
         "id": 16484,
         "name": "oid",
         "type": "idx_t",
-        "version": "serenedb_v1"
+        "version": "sdb_v1"
       }
     ],
     "methods": {
@@ -293,7 +293,7 @@
         "id": 16788,
         "name": "catalog_oid",
         "type": "idx_t",
-        "version": "serenedb_v1"
+        "version": "sdb_v1"
       }
     ]
   },
@@ -703,7 +703,7 @@
         "id": 16584,
         "name": "owner_path",
         "type": "vector<Identifier>",
-        "version": "serenedb_v1"
+        "version": "sdb_v1"
       }
     ]
   },
@@ -1562,7 +1562,7 @@
         "id": 16785,
         "name": "values",
         "type": "case_insensitive_map_t<Value>",
-        "version": "serenedb_v1"
+        "version": "sdb_v1"
       }
     ]
   },

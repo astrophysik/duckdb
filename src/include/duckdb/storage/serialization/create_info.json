@@ -97,13 +97,13 @@
         "id": 16485,
         "name": "oid",
         "type": "idx_t",
-        "version": "serenedb_v1"
+        "version": "sdb_v1"
       },
       {
         "id": 16486,
         "name": "schema_oid",
         "type": "idx_t",
-        "version": "serenedb_v1"
+        "version": "sdb_v1"
       }
     ],
     "methods": {
@@ -195,7 +195,7 @@
         "id": 16587,
         "name": "table_oid",
         "type": "idx_t",
-        "version": "serenedb_v1"
+        "version": "sdb_v1"
       }
     ],
     "finalize_deserialization": [
@@ -406,7 +406,7 @@
         "id": 16584,
         "name": "is_procedure",
         "type": "bool",
-        "version": "serenedb_v1"
+        "version": "sdb_v1"
       }
     ],
     "constructor": [
@@ -475,26 +475,26 @@
         "name": "cache",
         "type": "uint64_t",
         "default": "1ULL",
-        "version": "serenedb_v1"
+        "version": "sdb_v1"
       },
       {
         "id": 16585,
         "name": "recorded_start",
         "type": "optional<int64_t>",
-        "version": "serenedb_v1"
+        "version": "sdb_v1"
       },
       {
         "id": 16586,
         "name": "owned_by",
         "type": "vector<Identifier>",
-        "version": "serenedb_v1"
+        "version": "sdb_v1"
       },
       {
         "id": 16587,
         "name": "owner_column",
         "type": "optional_idx",
         "default": "optional_idx()",
-        "version": "serenedb_v1"
+        "version": "sdb_v1"
       }
     ],
     "methods": {
@@ -563,7 +563,7 @@
         "name": "firing",
         "type": "TriggerFiring",
         "default": "TriggerFiring::ORIGIN",
-        "version": "serenedb_v1"
+        "version": "sdb_v1"
       }
     ],
     "methods": {

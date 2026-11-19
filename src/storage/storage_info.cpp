@@ -16,12 +16,12 @@ inline constexpr idx_t DUCKDB_VERSION_NUMBER_DEFAULT =
     DuckDBVersionNumber(StorageVersionInfo::GetStorageVersionDefault());
 inline constexpr idx_t DUCKDB_VERSION_NUMBER_LOWER = DuckDBVersionNumber(DUCKDB_VERSION_LOWER);
 inline constexpr idx_t DUCKDB_VERSION_NUMBER_UPPER = DuckDBVersionNumber(DUCKDB_VERSION_UPPER);
-inline constexpr idx_t SERENEDB_VERSION_NUMBER_LOWER = SereneDBVersionNumber(SERENEDB_VERSION_LOWER);
-inline constexpr idx_t SERENEDB_VERSION_NUMBER_UPPER = SereneDBVersionNumber(SERENEDB_VERSION_UPPER);
+inline constexpr idx_t SERENEDB_VERSION_NUMBER_LOWER = SereneDBVersionNumber(SDB_VERSION_LOWER);
+inline constexpr idx_t SERENEDB_VERSION_NUMBER_UPPER = SereneDBVersionNumber(SDB_VERSION_UPPER);
 
 static_assert(DUCKDB_VERSION_NUMBER_LOWER <= DUCKDB_VERSION_NUMBER_DEFAULT);
 static_assert(DUCKDB_VERSION_NUMBER_DEFAULT <= DUCKDB_VERSION_NUMBER_UPPER);
-static_assert(IsSereneDBStorageVersion(SERENEDB_VERSION_LOWER));
+static_assert(IsSereneDBStorageVersion(SDB_VERSION_LOWER));
 static_assert(SERENEDB_VERSION_NUMBER_LOWER <= SERENEDB_VERSION_NUMBER_UPPER);
 
 bool IsReadableStorageVersion(const StorageVersion version) {
@@ -51,7 +51,7 @@ string GetStorageVersionNameInternal(const StorageVersion storage_version) {
 	StorageVersion min_version = StorageVersion::INVALID;
 	for (idx_t i = 0; storage_version_info[i].version_name; i++) {
 		if (strcmp(storage_version_info[i].version_name, "latest") == 0 ||
-		    strcmp(storage_version_info[i].version_name, "serenedb_latest") == 0) {
+		    strcmp(storage_version_info[i].version_name, "sdb_latest") == 0) {
 			continue;
 		}
 		if (storage_version_info[i].storage_version != storage_version) {

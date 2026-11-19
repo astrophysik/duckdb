@@ -15,13 +15,13 @@
         "id": 16484,
         "name": "constraint_name",
         "type": "string",
-        "version": "serenedb_v1"
+        "version": "sdb_v1"
       },
       {
         "id": 16485,
         "name": "oid",
         "type": "idx_t",
-        "version": "serenedb_v1"
+        "version": "sdb_v1"
       }
     ]
   },
@@ -129,7 +129,7 @@
         "id": 16584,
         "name": "index_oid",
         "type": "idx_t",
-        "version": "serenedb_v1"
+        "version": "sdb_v1"
       }
     ]
   }

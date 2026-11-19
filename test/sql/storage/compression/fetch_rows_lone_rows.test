@@ -2,7 +2,7 @@
 # description: Rows of the segments of each compression fetched alone, in clusters and at a stride
 # group: [compression]
 
-load {TEST_DIR}/test_fetch_rows_lone_rows.db readwrite serenedb_latest
+load {TEST_DIR}/test_fetch_rows_lone_rows.db readwrite sdb_latest
 
 statement ok
 PRAGMA force_compression = 'bitpacking';

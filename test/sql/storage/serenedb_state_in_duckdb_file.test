@@ -148,11 +148,11 @@ statement ok
 ALTER TABLE mem.u ADD UNIQUE (a)
 
 statement error
-ATTACH '{TEST_DIR}/serenedb_state_in_serenedb_file.db' AS sdb (STORAGE_VERSION 'serenedb_latest')
+ATTACH '{TEST_DIR}/serenedb_state_in_serenedb_file.db' AS sdb (STORAGE_VERSION 'sdb_latest')
 ----
 a SereneDB storage version is for SereneDB databases, a DuckDB database takes a DuckDB storage version
 
 statement error
-ATTACH '{TEST_DIR}/serenedb_state_in_serenedb_file.db' AS sdb (STORAGE_VERSION 'serenedb_v1')
+ATTACH '{TEST_DIR}/serenedb_state_in_serenedb_file.db' AS sdb (STORAGE_VERSION 'sdb_v1')
 ----
 a SereneDB storage version is for SereneDB databases, a DuckDB database takes a DuckDB storage version

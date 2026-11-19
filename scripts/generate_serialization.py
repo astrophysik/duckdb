@@ -73,7 +73,7 @@ verify_serialization_versions(version_map)
 
 
 def is_serenedb_version(version: str) -> bool:
-    if not version.startswith("serenedb_"):
+    if not version.startswith("sdb_"):
         return False
     if version not in version_map["storage"]["values"]:
         print(f"Specified version ({version}) could not be found in the storage versions of version_map.json!")

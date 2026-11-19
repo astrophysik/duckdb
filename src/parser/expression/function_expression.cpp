@@ -152,7 +152,7 @@ optional_ptr<ParsedExpression> FunctionExpression::IsLambdaFunction() {
 
 void FunctionExpression::Serialize(Serializer &serializer) const {
 	ParsedExpression::Serialize(serializer);
-	const bool serenedb = serializer.ShouldSerialize(StorageVersion::SERENEDB_V1);
+	const bool serenedb = serializer.ShouldSerialize(StorageVersion::SDB_V1);
 	const auto written = builtin && !serenedb ? QualifiedName(Identifier::SystemCatalog(), Identifier::DefaultSchema(),
 	                                                          qualified_name.Name())
 	                                          : qualified_name;

@@ -220,8 +220,7 @@ static void ShowUnsupportedStorageVersionError(const StorageVersion version_numb
 	if (!version.empty()) {
 		// Known version.
 		version_text = absl::StrCat("storage version ", version);
-	} else if (version_number >
-	           (IsSereneDBStorageVersion(version_number) ? SERENEDB_VERSION_UPPER : DUCKDB_VERSION_UPPER)) {
+	} else if (version_number > (IsSereneDBStorageVersion(version_number) ? SDB_VERSION_UPPER : DUCKDB_VERSION_UPPER)) {
 		version_text = "a newer storage version";
 	} else {
 		version_text = "an older development storage version";
@@ -232,8 +231,8 @@ static void ShowUnsupportedStorageVersionError(const StorageVersion version_numb
 	                  StorageVersionToDisk(version_number),
 	                  StorageVersionInfo::GetStorageVersionString(DUCKDB_VERSION_LOWER),
 	                  StorageVersionInfo::GetStorageVersionString(DUCKDB_VERSION_UPPER),
-	                  StorageVersionInfo::GetStorageVersionString(SERENEDB_VERSION_LOWER),
-	                  StorageVersionInfo::GetStorageVersionString(SERENEDB_VERSION_UPPER), version_text);
+	                  StorageVersionInfo::GetStorageVersionString(SDB_VERSION_LOWER),
+	                  StorageVersionInfo::GetStorageVersionString(SDB_VERSION_UPPER), version_text);
 }
 
 MainHeader MainHeader::Read(ReadStream &source) {
@@ -831,7 +830,7 @@ void SingleFileBlockManager::Initialize(const DatabaseHeader &header, const opti
 		    "Error opening \"%s\": the file has storage version %s, which is not a SereneDB storage version. "
 		    "It was written by a release of SereneDB older than %s, or it is not a SereneDB database file.",
 		    path, GetStorageVersionName(header.storage_compatibility, false),
-		    GetStorageVersionName(SERENEDB_VERSION_LOWER, false));
+		    GetStorageVersionName(SDB_VERSION_LOWER, false));
 	}
 	free_list_id = header.free_list;
 	meta_block = header.meta_block;

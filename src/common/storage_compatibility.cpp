@@ -34,8 +34,8 @@ StorageCompatibility StorageCompatibility::FromString(const string &input) {
 		throw InvalidInputException(
 		    "The storage version '%s' can no longer be read by this version of SereneDB, which reads serenedb "
 		    "versions %s through %s",
-		    input, StorageVersionInfo::GetStorageVersionString(SERENEDB_VERSION_LOWER),
-		    StorageVersionInfo::GetStorageVersionString(SERENEDB_VERSION_UPPER));
+		    input, StorageVersionInfo::GetStorageVersionString(SDB_VERSION_LOWER),
+		    StorageVersionInfo::GetStorageVersionString(SDB_VERSION_UPPER));
 	}
 	StorageCompatibility result;
 	result.duckdb_version = input;
@@ -73,7 +73,7 @@ const StorageCompatibility &StorageCompatibility::DuckDBLatest() {
 
 const StorageCompatibility &StorageCompatibility::SereneDBLatest() {
 	static const StorageCompatibility latest_compatibility = [] {
-		auto res = FromString("serenedb_latest");
+		auto res = FromString("sdb_latest");
 		res.manually_set = false;
 		return res;
 	}();

@@ -314,7 +314,7 @@
         "id": 16584,
         "name": "from_operator",
         "type": "bool",
-        "version": "serenedb_v1",
+        "version": "sdb_v1",
         "equals_skip": true,
         "accessor_mut": "FromOperatorMutable()",
         "accessor": "IsFromOperator()"
@@ -323,7 +323,7 @@
         "id": 16585,
         "name": "builtin",
         "type": "bool",
-        "version": "serenedb_v1",
+        "version": "sdb_v1",
         "accessor_mut": "BuiltinMutable()",
         "accessor": "IsBuiltin()"
       },

@@ -625,7 +625,7 @@
         "id": 16485,
         "name": "catalog_oid",
         "type": "idx_t",
-        "version": "serenedb_v1"
+        "version": "sdb_v1"
       }
     ],
     "constructor": [
@@ -786,13 +786,13 @@
         "id": 16484,
         "name": "allow_duplicate_names",
         "type": "bool",
-        "version": "serenedb_v1"
+        "version": "sdb_v1"
       },
       {
         "id": 16485,
         "name": "case_sensitive",
         "type": "bool",
-        "version": "serenedb_v1"
+        "version": "sdb_v1"
       }
     ],
     "constructor": [
