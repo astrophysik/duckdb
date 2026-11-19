@@ -17,6 +17,7 @@
 #include "duckdb/common/multi_file/multi_file_data.hpp"
 #include "duckdb/planner/expression.hpp"
 #include "duckdb/common/open_file_info.hpp"
+#include "duckdb/function/partition_stats.hpp"
 
 namespace duckdb {
 
@@ -118,6 +119,12 @@ public:
 	DUCKDB_API virtual double GetProgressInFile(ClientContext &context);
 	//! Get reader metadata, if available
 	DUCKDB_API virtual InsertionOrderPreservingMap<Value> GetMetadata() const;
+	//! The partitions of the file (e.g. its row groups) with the statistics of their columns, as get_partition_stats
+	//! lists them - returns false when the reader cannot list them, or cannot read a given set of them
+	DUCKDB_API virtual bool ListPartitions(ClientContext &context, vector<PartitionStatistics> &result);
+	//! Read only these partitions of the file (indexes into ListPartitions), in this order - called before the
+	//! reader is prepared, and only on readers whose GetPartitionStats lists the partitions
+	DUCKDB_API virtual void SetPartitionsToScan(vector<idx_t> partitions);
 
 	virtual string GetReaderType() const = 0;
 

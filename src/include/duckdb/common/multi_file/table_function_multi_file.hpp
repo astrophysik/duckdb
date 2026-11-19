@@ -88,6 +88,9 @@ struct TableFunctionFileInitInput {
 	//! TableFunctionInitInput::op is the operator all those files are read for
 	optional_idx file_index;
 	idx_t file_count = 1;
+	//! (Optional) The only partitions of the file the function reads - indexes into what its get_partition_stats lists
+	//! - in the order it reads them in. Only set for functions whose settings declare "scans_partitions"
+	optional_ptr<const vector<idx_t>> partitions;
 
 	//! The multi-file input of an initialization - an empty one when the function is not read as part of a
 	//! multi-file scan
@@ -216,6 +219,10 @@ struct TableFunctionMultiFileSettings {
 	//! TableFunctionFileInitInput::cast_map. The function then reports the schema of its own file, and still
 	//! produces the types of the scan
 	bool supports_cast_map = false;
+	//! Whether the function reads the partitions it is given in TableFunctionFileInitInput::partitions, in that order -
+	//! together with the per-partition get_partition_stats of the function, this lets the scan order its partitions
+	//! (set_scan_order) and read only some of them (set_partitions_to_scan)
+	bool scans_partitions = false;
 };
 
 //! The function info of a multi-file wrapper - holds the single-file function that is wrapped
@@ -274,6 +281,8 @@ public:
 	            std::span<const int64_t> rows, std::span<idx_t> survivors, DataChunk &chunk) override;
 	double GetProgressInFile(ClientContext &context) override;
 	InsertionOrderPreservingMap<Value> GetMetadata() const override;
+	bool ListPartitions(ClientContext &context, vector<PartitionStatistics> &result) override;
+	void SetPartitionsToScan(vector<idx_t> partitions) override;
 
 	//! Release the resources the given local state holds for the batch it scanned last
 	void FinishBatch(ClientContext &context, LocalTableFunctionState &local_state);
@@ -338,6 +347,8 @@ private:
 	mutex lock;
 	//! The global state of the wrapped function - shared by all threads scanning this file
 	unique_ptr<GlobalTableFunctionState> global_state;
+	//! (Optional) The only partitions of the file that are read, in this order - see SetPartitionsToScan
+	unique_ptr<vector<idx_t>> partitions;
 	//! The number of row groups to scan of this file that has been collected into the state of the scan
 	idx_t collected_file_total = 0;
 	//! Set when the wrapped function has no local state - only a single thread can scan the file in that case

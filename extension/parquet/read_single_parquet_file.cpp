@@ -239,7 +239,18 @@ static unique_ptr<GlobalTableFunctionState> ReadSingleParquetFileInitGlobal(Clie
 		// by the caller, which outlives this scan
 		reader.deletion_filter = make_uniq<BorrowedDeleteFilter>(*file_input.deletion_filter);
 	}
-	result->max_threads = MaxValue<idx_t>(reader.NumRowGroups(), 1);
+	if (file_input.partitions) {
+		// our caller planned which row groups of the file are read, and in which order
+		for (auto row_group : *file_input.partitions) {
+			if (row_group >= reader.NumRowGroups()) {
+				throw InvalidInputException("\"%s\" has fewer row groups than when the query was planned",
+				                            parquet_data.file.path);
+			}
+		}
+		result->state.row_group_order = make_uniq<vector<idx_t>>(*file_input.partitions);
+	}
+	const auto row_groups = file_input.partitions ? file_input.partitions->size() : reader.NumRowGroups();
+	result->max_threads = MaxValue<idx_t>(row_groups, 1);
 	return std::move(result);
 }
 
@@ -549,6 +560,7 @@ TableFunctionMultiFileSettings ParquetScanFunction::GetMultiFileSettings() {
 	settings.reader_type = "Parquet";
 	settings.claim_batch = ReadSingleParquetFileClaimBatch;
 	settings.finish_batch = ReadSingleParquetFileFinishBatch;
+	settings.scans_partitions = true;
 	settings.supports_read_ahead = ReadSingleParquetFileSupportsReadAhead;
 	settings.schedule_io = ReadSingleParquetFileScheduleIO;
 	settings.prepare_read_ahead = ReadSingleParquetFilePrepareReadAhead;

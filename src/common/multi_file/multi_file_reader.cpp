@@ -73,6 +73,8 @@ unique_ptr<FunctionData> MultiFileBindData::Copy() const {
 	if (!union_readers.empty()) {
 		result->statistics_union_readers.assign(union_readers.begin(), union_readers.end());
 	}
+	result->scan_order = scan_order;
+	result->partitions_to_scan = partitions_to_scan;
 	return std::move(result);
 }
 

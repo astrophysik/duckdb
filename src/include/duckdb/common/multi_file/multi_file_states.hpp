@@ -19,6 +19,7 @@
 #include "duckdb/common/table_column.hpp"
 #include "duckdb/function/table_function.hpp"
 #include "duckdb/parallel/scan_read_ahead.hpp"
+#include "duckdb/storage/table/row_group_order_options.hpp"
 
 namespace duckdb {
 struct MultiFileReader;
@@ -93,6 +94,16 @@ struct MultiFileBindData : public TableFunctionData {
 	// The union readers are created (when the union_by_name option is on) during binding
 	vector<shared_ptr<BaseUnionData>> union_readers;
 	vector<weak_ptr<BaseUnionData>> statistics_union_readers;
+	//! (Optional) The order the partitions (row groups) of the files are read in - see set_scan_order
+	shared_ptr<const RowGroupOrderOptions> scan_order;
+	//! (Optional) The only partitions that are read, as indexes into what get_partition_stats lists - see
+	//! set_partitions_to_scan
+	shared_ptr<const vector<idx_t>> partitions_to_scan;
+
+	//! Whether the scan reads a planned set of partitions, or the partitions in a planned order - see PlanPartitions
+	bool PlansPartitions() const {
+		return scan_order || partitions_to_scan;
+	}
 
 	void Initialize(shared_ptr<BaseFileReader> reader) {
 		initial_reader = std::move(reader);
@@ -186,6 +197,17 @@ struct MultiFileGlobalState : public GlobalTableFunctionState {
 	mutable idx_t completed_file_index = 0;
 	//! The current set of readers
 	vector<unique_ptr<MultiFileReaderData>> readers;
+
+	//! Whether the scan reads planned partitions (MultiFileBindData::PlansPartitions) - every file is then opened
+	//! upfront, and claims follow planned_files
+	bool planned = false;
+	//! The file every claim of a planned scan reads from, in claim order - the reader of that file hands out its
+	//! partitions in the planned order itself
+	vector<idx_t> planned_files;
+	//! The next entry of planned_files to claim
+	idx_t planned_claim = 0;
+	//! The claims each file has left - a file is finished once it has none
+	vector<idx_t> planned_claims_left;
 
 	idx_t batch_index = 0;
 

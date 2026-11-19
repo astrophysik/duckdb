@@ -745,12 +745,13 @@ bool ParquetReader::TryInitializeScan(ClientContext &context, GlobalTableFunctio
                                       LocalTableFunctionState &lstate_p) {
 	auto &gstate = gstate_p.Cast<ParquetReadGlobalState>();
 	auto &lstate = lstate_p.Cast<ParquetReadLocalState>();
-	if (gstate.row_group_index >= NumRowGroups()) {
+	const auto &order = gstate.row_group_order;
+	if (gstate.row_group_index >= (order ? order->size() : NumRowGroups())) {
 		// scanned all row groups in this file
 		return false;
 	}
 	// The current reader has rowgroups left to be scanned
-	lstate.group_index = gstate.row_group_index;
+	lstate.group_index = order ? (*order)[gstate.row_group_index] : gstate.row_group_index;
 	gstate.row_group_index++;
 	return true;
 }

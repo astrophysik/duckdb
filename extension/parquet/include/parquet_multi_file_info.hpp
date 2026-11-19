@@ -54,8 +54,10 @@ public:
 struct ParquetReadGlobalState : public GlobalTableFunctionState {
 	explicit ParquetReadGlobalState(optional_ptr<const PhysicalOperator> op_p) : row_group_index(0), op(op_p) {
 	}
-	//! Index of row group within file currently up for scanning
+	//! Index of row group within file currently up for scanning - into row_group_order when the file has one
 	idx_t row_group_index;
+	//! (Optional) The only row groups of the file that are read, in this order
+	unique_ptr<vector<idx_t>> row_group_order;
 	//! (Optional) pointer to physical operator performing the scan
 	optional_ptr<const PhysicalOperator> op;
 	//! Row groups read but not yet reported to the profiler

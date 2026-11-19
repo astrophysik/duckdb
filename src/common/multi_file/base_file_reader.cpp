@@ -46,6 +46,14 @@ InsertionOrderPreservingMap<Value> BaseFileReader::GetMetadata() const {
 	return {};
 }
 
+bool BaseFileReader::ListPartitions(ClientContext &context, vector<PartitionStatistics> &result) {
+	return false;
+}
+
+void BaseFileReader::SetPartitionsToScan(vector<idx_t> partitions) {
+	throw InternalException("Reader %s does not support SetPartitionsToScan", GetReaderType());
+}
+
 unique_ptr<BaseStatistics> BaseUnionData::GetStatistics(ClientContext &context, const Identifier &name) {
 	return nullptr;
 }

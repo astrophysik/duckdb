@@ -226,6 +226,9 @@ TableFunctionInitInput TableFunctionFileReader::GetInitInput(TableFunctionFileIn
 	if (!cast_map.empty()) {
 		file_input.cast_map = cast_map;
 	}
+	if (partitions) {
+		file_input.partitions = *partitions;
+	}
 	input.multi_file_input = file_input;
 	return input;
 }
@@ -370,6 +373,32 @@ double TableFunctionFileReader::GetProgressInFile(ClientContext &context) {
 
 InsertionOrderPreservingMap<Value> TableFunctionFileReader::GetMetadata() const {
 	return metadata;
+}
+
+bool TableFunctionFileReader::ListPartitions(ClientContext &context, vector<PartitionStatistics> &result) {
+	if (!settings.scans_partitions || !function.get_partition_stats || !bind_data) {
+		return false;
+	}
+	BoundTableFunction bound_function(function);
+	GetPartitionStatsInput input(bound_function, bind_data.get());
+	input.row_groups = true;
+	result = function.get_partition_stats(context, input);
+	if (result.empty() && (!cardinality.IsValid() || cardinality.GetIndex() != 0)) {
+		// no partitions are listed for a file that may have rows - the function cannot describe them
+		return false;
+	}
+	if (deletion_filter) {
+		// the partitions still count the rows deleted from the file
+		for (auto &partition : result) {
+			partition.count_type = CountType::COUNT_APPROXIMATE;
+		}
+	}
+	return true;
+}
+
+void TableFunctionFileReader::SetPartitionsToScan(vector<idx_t> partitions_p) {
+	D_ASSERT(settings.scans_partitions && !global_state);
+	partitions = make_uniq<vector<idx_t>>(std::move(partitions_p));
 }
 
 //===--------------------------------------------------------------------===//
@@ -805,6 +834,17 @@ static vector<column_t> TableFunctionMultiFileGetRowIdColumns(ClientContext &, o
 	return {MultiFileReader::COLUMN_IDENTIFIER_FILE_INDEX, MultiFileReader::COLUMN_IDENTIFIER_FILE_ROW_NUMBER};
 }
 
+static void TableFunctionMultiFileSetScanOrder(ClientContext &, unique_ptr<RowGroupOrderOptions> order_options,
+                                               optional_ptr<FunctionData> bind_data) {
+	bind_data->Cast<MultiFileBindData>().scan_order = shared_ptr<RowGroupOrderOptions>(std::move(order_options));
+}
+
+static void TableFunctionMultiFileSetPartitionsToScan(vector<idx_t> partition_indices,
+                                                      optional_ptr<FunctionData> bind_data) {
+	bind_data->Cast<MultiFileBindData>().partitions_to_scan =
+	    make_shared_ptr<vector<idx_t>>(std::move(partition_indices));
+}
+
 TableFunction TableFunctionMultiFileWrapper::CreateFunction(TableFunction single_file_function, Identifier name,
                                                             TableFunctionMultiFileSettings settings,
                                                             table_function_bind_t bind) {
@@ -845,6 +885,11 @@ TableFunction TableFunctionMultiFileWrapper::CreateFunction(TableFunction single
 	}
 	if (settings.lookup) {
 		result.get_row_id_columns = TableFunctionMultiFileGetRowIdColumns;
+	}
+	if (settings.scans_partitions && single_file_function.get_partition_stats) {
+		// the scan reads the partitions of its files in a planned order, or only some of them - see PlanPartitions
+		result.set_scan_order = TableFunctionMultiFileSetScanOrder;
+		result.set_partitions_to_scan = TableFunctionMultiFileSetPartitionsToScan;
 	}
 	// NOTE: callbacks that take bind data are NOT forwarded - through the wrapper they are handed the bind data of
 	// the multi-file scan, not the bind data the wrapped function produced for a file. A format that wants one sets
