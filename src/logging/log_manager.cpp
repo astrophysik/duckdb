@@ -11,31 +11,37 @@
 namespace duckdb {
 
 shared_ptr<Logger> LogManager::CreateLogger(LoggingContext context, bool thread_safe, bool mutable_settings) {
-	auto nop = [&] {
-		return shared_ptr<Logger>(shared_ptr<Logger>(), &nop_logger);
-	};
-	if (!mutable_settings && !any_logging_enabled.load(std::memory_order_relaxed)) {
-		return nop();
-	}
-
 	if (mutable_settings) {
 		return make_shared_ptr<MutableLogger>(config, RegisterLoggingContextInternal(context), *this);
 	}
-	// Recheck after the lock-free gate: logging may have been disabled in the window.
 	if (!any_logging_enabled.load(std::memory_order_relaxed)) {
-		return nop();
+		return SharedNopLogger();
 	}
 	if (!thread_safe) {
 		// TODO: implement ThreadLocalLogger and return it here
 	}
-	auto snapshot = config_snapshot.Read([](const shared_ptr<const LogConfig> &cfg) { return cfg; });
-	// The any_logging_enabled gate and the snapshot are read without a lock, so logging may have
-	// been disabled (and the snapshot updated) in between: don't build a ThreadSafeLogger from a
-	// disabled snapshot, fall back to the shared nop logger instead.
-	if (!snapshot->enabled) {
-		return nop();
+	CachedLogConfig cache;
+	return CreateLogger(context, cache);
+}
+
+shared_ptr<Logger> LogManager::CreateLogger(LoggingContext context, CachedLogConfig &cache) {
+	if (cache.version != config_version.load(std::memory_order_acquire)) {
+		unique_lock<mutex> lck(lock);
+		cache.version = config_version.load(std::memory_order_relaxed);
+		cache.config = make_shared_ptr<const LogConfig>(config);
 	}
-	return make_shared_ptr<ThreadSafeLogger>(std::move(snapshot), RegisterLoggingContextInternal(context), *this);
+	return CreateLogger(context, cache.config);
+}
+
+shared_ptr<Logger> LogManager::CreateLogger(LoggingContext context, shared_ptr<const LogConfig> snapshot) {
+	if (!snapshot->enabled) {
+		return SharedNopLogger();
+	}
+	return make_shared_ptr<ThreadSafeLogger>(std::move(snapshot), context, *this);
+}
+
+shared_ptr<Logger> LogManager::SharedNopLogger() {
+	return shared_ptr<Logger>(shared_ptr<Logger>(), &nop_logger);
 }
 
 RegisteredLoggingContext LogManager::RegisterLoggingContext(LoggingContext &context) {
@@ -61,7 +67,8 @@ shared_ptr<Logger> LogManager::GlobalLoggerReference() {
 void LogManager::Flush() {
 	// Hot path: ClientContext::Begin/EndQueryInternal flush per query. When nothing has
 	// been logged since the last flush, skip the lock + storage flush entirely.
-	if (!has_buffered_entries.exchange(false, std::memory_order_relaxed)) {
+	if (!has_buffered_entries.load(std::memory_order_relaxed) ||
+	    !has_buffered_entries.exchange(false, std::memory_order_relaxed)) {
 		return;
 	}
 	unique_lock<mutex> lck(lock);
@@ -79,8 +86,8 @@ bool LogManager::CanScan(LoggingTargetTable table) {
 }
 
 LogManager::LogManager(DatabaseInstance &db, LogConfig config_p)
-    : config(std::move(config_p)), config_snapshot(make_shared_ptr<const LogConfig>(config)), nop_logger(*this),
-      db_instance(db) {
+    : config(std::move(config_p)), nop_logger(*this), db_instance(db) {
+	PublishConfigInternal();
 	any_logging_enabled.store(config.enabled, std::memory_order_relaxed);
 	log_storage = make_uniq<InMemoryLogStorage>(db);
 }
@@ -280,9 +287,10 @@ void LogManager::SetConfigInternal(LogConfig config_p) {
 }
 
 void LogManager::PublishConfigInternal() {
-	auto snapshot = make_shared_ptr<const LogConfig>(config);
-	config_snapshot.Write([&snapshot](shared_ptr<const LogConfig> &cfg) { cfg = snapshot; });
-	global_logger->UpdateConfig(config);
+	config_version.fetch_add(1, std::memory_order_release);
+	if (global_logger) {
+		global_logger->UpdateConfig(config);
+	}
 }
 
 void LogManager::RegisterLogType(unique_ptr<LogType> type) {

@@ -72,7 +72,7 @@ void ClientContext::BeginQueryInternal(ClientContextLock &lock, const SQLStateme
 	logging_context.connection_id = connection_id;
 	logging_context.transaction_id = transaction.ActiveTransaction().global_transaction_id;
 	logging_context.query_id = transaction.GetActiveQuery();
-	logger = db->GetLogManager().CreateLogger(logging_context, true);
+	logger = db->GetLogManager().CreateLogger(logging_context, log_config);
 	DUCKDB_LOG(*this, QueryLogType, query);
 }
 
@@ -142,7 +142,7 @@ ErrorData ClientContext::EndQueryInternal(ClientContextLock &lock, bool success,
 	logger->Flush();
 	LoggingContext context(LogContextScope::CONNECTION);
 	context.connection_id = connection_id;
-	logger = db->GetLogManager().CreateLogger(context, true);
+	logger = db->GetLogManager().CreateLogger(context, log_config);
 
 	// Notify any registered state of query end
 	for (auto const &s : registered_state->States()) {

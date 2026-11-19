@@ -39,12 +39,12 @@ Logger &Logger::Get(const shared_ptr<Logger> &logger) {
 }
 
 ThreadSafeLogger::ThreadSafeLogger(shared_ptr<const LogConfig> config_p, LoggingContext &context_p, LogManager &manager)
-    : ThreadSafeLogger(std::move(config_p), manager.RegisterLoggingContext(context_p), manager) {
+    : ThreadSafeLogger(std::move(config_p), RegisteredLoggingContext {DConstants::INVALID_INDEX, context_p}, manager) {
 }
 
 ThreadSafeLogger::ThreadSafeLogger(shared_ptr<const LogConfig> config_p, RegisteredLoggingContext context_p,
                                    LogManager &manager)
-    : Logger(manager), config(std::move(config_p)), context(context_p) {
+    : Logger(manager), config(std::move(config_p)), context(context_p.context), context_id(context_p.context_id) {
 	// NopLogger should be used instead
 	D_ASSERT(config->enabled);
 	log_enabled = true;
@@ -66,7 +66,15 @@ bool ThreadSafeLogger::ShouldLog(std::string_view log_type, LogLevel log_level) 
 }
 
 void ThreadSafeLogger::WriteLogInternal(std::string_view log_type, LogLevel log_level, std::string_view log_message) {
-	manager.WriteLogEntry(Timestamp::GetCurrentTimestamp(), log_type, log_level, log_message, context);
+	auto id = context_id.load(std::memory_order_relaxed);
+	if (id == DConstants::INVALID_INDEX) {
+		const auto registered = manager.RegisterLoggingContext(context).context_id;
+		if (context_id.compare_exchange_strong(id, registered, std::memory_order_relaxed)) {
+			id = registered;
+		}
+	}
+	manager.WriteLogEntry(Timestamp::GetCurrentTimestamp(), log_type, log_level, log_message,
+	                      RegisteredLoggingContext {id, context});
 }
 
 void ThreadSafeLogger::Flush() {

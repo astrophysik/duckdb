@@ -28,6 +28,7 @@
 #include "duckdb/planner/expression/bound_parameter_data.hpp"
 #include "duckdb/transaction/transaction_context.hpp"
 #include "duckdb/common/query_context.hpp"
+#include "duckdb/logging/logging.hpp"
 #include "duckdb/main/query_parameters.hpp"
 
 namespace duckdb {
@@ -108,6 +109,7 @@ public:
 	unique_ptr<RegisteredStateManager> registered_state;
 	//! The logger to be used by this ClientContext
 	shared_ptr<Logger> logger;
+	CachedLogConfig log_config;
 	//! The client configuration
 	ClientConfig config;
 	//! The set of client-specific data

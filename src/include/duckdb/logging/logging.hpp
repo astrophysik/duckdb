@@ -11,6 +11,7 @@
 #include "duckdb/common/atomic.hpp"
 #include "duckdb/common/mutex.hpp"
 #include "duckdb/common/optional_idx.hpp"
+#include "duckdb/common/shared_ptr.hpp"
 #include "duckdb/common/types.hpp"
 #include "duckdb/common/unordered_set.hpp"
 #include "duckdb/common/typedefs.hpp"
@@ -71,6 +72,11 @@ struct LoggingContext {
 struct RegisteredLoggingContext {
 	idx_t context_id;
 	LoggingContext context;
+};
+
+struct CachedLogConfig {
+	idx_t version = 0;
+	shared_ptr<const LogConfig> config;
 };
 
 } // namespace duckdb

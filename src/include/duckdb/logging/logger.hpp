@@ -141,7 +141,8 @@ public:
 protected:
 	const shared_ptr<const LogConfig> config;
 	mutex lock;
-	const RegisteredLoggingContext context;
+	LoggingContext context;
+	atomic<idx_t> context_id;
 };
 
 // Non Thread-safe logger

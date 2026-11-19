@@ -12,7 +12,6 @@
 #include "duckdb/logging/log_storage.hpp"
 #include "duckdb/common/types/timestamp.hpp"
 #include "duckdb/common/case_insensitive_map.hpp"
-#include "duckdb/common/left_right.hpp"
 
 namespace duckdb {
 class LogType;
@@ -35,6 +34,8 @@ public:
 
 	DUCKDB_API static LogManager &Get(ClientContext &context);
 	shared_ptr<Logger> CreateLogger(LoggingContext context, bool thread_safe = true, bool mutable_settings = false);
+	shared_ptr<Logger> CreateLogger(LoggingContext context, CachedLogConfig &cache);
+	shared_ptr<Logger> CreateLogger(LoggingContext context, shared_ptr<const LogConfig> snapshot);
 
 	RegisteredLoggingContext RegisterLoggingContext(LoggingContext &context);
 
@@ -87,11 +88,12 @@ protected:
 	void SetConfigInternal(LogConfig config);
 
 	void PublishConfigInternal();
+	shared_ptr<Logger> SharedNopLogger();
 
 protected:
 	mutex lock;
 	LogConfig config;
-	LeftRight<shared_ptr<const LogConfig>> config_snapshot;
+	atomic<idx_t> config_version {0};
 	atomic<bool> any_logging_enabled = false;
 	// Set when an entry is buffered, cleared by Flush -- lets the per-query Flush skip the
 	// lock + storage flush when nothing was logged since the last flush.
