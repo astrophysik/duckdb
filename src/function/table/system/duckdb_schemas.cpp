@@ -120,7 +120,7 @@ void DuckDBSchemasFunction(ClientContext &context, TableFunctionInput &data_p, D
 }
 
 void DuckDBSchemasFun::RegisterFunction(BuiltinFunctions &set) {
-	TableFunction fn("duckdb_schemas", {}, DuckDBSchemasFunction, DuckDBSchemasBind, DuckDBSchemasInit);
+	TableFunction fn(set.SystemObjectName("schemas"), {}, DuckDBSchemasFunction, DuckDBSchemasBind, DuckDBSchemasInit);
 	fn.pushdown_complex_filter = DuckDBSystemIncludeHiddenBindData::PushdownDatabaseFilters;
 	fn.GetSignature().AddKeywordOnly("include_hidden", LogicalType::BOOLEAN, Value::BOOLEAN(false));
 	set.AddFunction(fn);

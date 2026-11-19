@@ -9,6 +9,7 @@
 #include "duckdb/common/file_opener.hpp"
 #include "duckdb/function/table_function.hpp"
 #include "duckdb/main/client_context.hpp"
+#include "duckdb/main/config.hpp"
 #include "duckdb/main/settings.hpp"
 #include "duckdb/main/extension/extension_loader.hpp"
 #include "duckdb/parser/peg/transformer/peg_transformer.hpp"
@@ -615,7 +616,7 @@ struct FormatSQLBindData : public FunctionData {
 
 //! Parse the MAP(VARCHAR, VARCHAR) config argument and populate FormatterConfig.
 //! Recognised keys: "indent_size", "inline_threshold", "keyword_case".
-static FormatterConfig ParseFormatterConfig(const Value &map_val) {
+static FormatterConfig ParseFormatterConfig(const string &function_name, const Value &map_val) {
 	FormatterConfig config;
 	if (map_val.IsNull()) {
 		return config;
@@ -637,11 +638,11 @@ static FormatterConfig ParseFormatterConfig(const Value &map_val) {
 			} else if (kc == "preserve") {
 				config.keyword_case = KeywordCase::PRESERVE;
 			} else {
-				throw InvalidInputException(
-				    "duckdb_format_sql: keyword_case must be 'upper', 'lower', or 'preserve'; got '%s'", val_str);
+				throw InvalidInputException("%s: keyword_case must be 'upper', 'lower', or 'preserve'; got '%s'",
+				                            function_name, val_str);
 			}
 		} else {
-			throw InvalidInputException("duckdb_format_sql: unknown config key '%s'", key);
+			throw InvalidInputException("%s: unknown config key '%s'", function_name, key);
 		}
 	}
 	return config;
@@ -652,7 +653,8 @@ static unique_ptr<FunctionData> FormatSQLBind(BindScalarFunctionInput &input) {
 
 	auto bind_data = make_uniq<FormatSQLBindData>();
 	if (arguments.size() >= 2) {
-		bind_data->config = ParseFormatterConfig(input.GetConstant(1));
+		bind_data->config =
+		    ParseFormatterConfig(input.GetBoundFunction().GetName().GetIdentifierName(), input.GetConstant(1));
 	}
 	return std::move(bind_data);
 }
@@ -687,7 +689,8 @@ static void LoadInternal(ExtensionLoader &loader) {
 	loader.RegisterFunction(tokenize_fun);
 
 	const auto map_config_type = LogicalType::MAP(LogicalType::VARCHAR, LogicalType::VARCHAR);
-	ScalarFunctionSet format_sql_set("duckdb_format_sql");
+	auto &config = DBConfig::GetConfig(loader.GetDatabaseInstance());
+	ScalarFunctionSet format_sql_set(Identifier(config.SystemObjectName("format_sql")));
 	// duckdb_format_sql(sql)
 	ScalarFunction format_sql_unary({}, LogicalType::VARCHAR, FormatSQLExecute, FormatSQLBind);
 	format_sql_unary.GetSignature().AddParameter("sql", LogicalType::VARCHAR);

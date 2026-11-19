@@ -21,7 +21,8 @@ static string PragmaTableInfo(ClientContext &context, const FunctionParameters &
 	return StringUtil::Format("SELECT * FROM pragma_table_info(%s);", SQLString(parameters.values[0].ToString()));
 }
 
-string PragmaShowTables(const string &database, const string &schema, optional_idx schema_oid) {
+string PragmaShowTables(ClientContext &context, const string &database, const string &schema, optional_idx schema_oid) {
+	auto &config = DBConfig::GetConfig(context);
 	string where_clause = "";
 	vector<string> where_conditions;
 	if (schema_oid.IsValid()) {
@@ -45,12 +46,12 @@ string PragmaShowTables(const string &database, const string &schema, optional_i
 	with "tables" as
 	(
 		SELECT table_name as "name"
-		FROM duckdb_tables
+		FROM )EOF" + config.SystemObjectName("tables") + R"EOF(
 		)EOF" + where_clause + R"EOF(
 	), "views" as
 	(
 		SELECT view_name as "name"
-		FROM duckdb_views
+		FROM )EOF" + config.SystemObjectName("views") + R"EOF(
 		)EOF" + where_clause + R"EOF(
 	), db_objects as
 	(
@@ -67,11 +68,12 @@ string PragmaShowTables(const string &database, const string &schema, optional_i
 }
 
 static string PragmaShowTables(ClientContext &context, const FunctionParameters &parameters) {
-	return PragmaShowTables();
+	return PragmaShowTables(context);
 }
 
-string PragmaShowTablesExpanded() {
-	return R"(
+string PragmaShowTablesExpanded(ClientContext &context) {
+	auto &config = DBConfig::GetConfig(context);
+	return StringUtil::Format(R"(
 	SELECT
 		t.database_name AS database,
 		t.schema_name AS schema,
@@ -79,8 +81,8 @@ string PragmaShowTablesExpanded() {
 		LIST(c.column_name order by c.column_index) AS column_names,
 		LIST(c.data_type order by c.column_index) AS column_types,
 		FIRST(t.temporary) AS temporary,
-	FROM duckdb_tables t
-	JOIN duckdb_columns c
+	FROM %s t
+	JOIN %s c
 	USING (table_oid)
 	GROUP BY database, schema, name
 
@@ -93,29 +95,33 @@ string PragmaShowTablesExpanded() {
 		LIST(c.column_name order by c.column_index) AS column_names,
 		LIST(c.data_type order by c.column_index) AS column_types,
 		FIRST(v.temporary) AS temporary,
-	FROM duckdb_views v
-	JOIN duckdb_columns c
+	FROM %s v
+	JOIN %s c
 	ON (v.view_oid=c.table_oid)
 	GROUP BY database, schema, name
 
 	ORDER BY database, schema, name
-	)";
+	)",
+	                          config.SystemObjectName("tables"), config.SystemObjectName("columns"),
+	                          config.SystemObjectName("views"), config.SystemObjectName("columns"));
 }
 
 static string PragmaShowTablesExpanded(ClientContext &context, const FunctionParameters &parameters) {
-	return PragmaShowTablesExpanded();
+	return PragmaShowTablesExpanded(context);
 }
 
-string PragmaShowDatabases() {
-	return "SELECT database_name FROM duckdb_databases() WHERE NOT internal ORDER BY database_name;";
+string PragmaShowDatabases(ClientContext &context) {
+	return StringUtil::Format("SELECT database_name FROM %s() WHERE NOT internal ORDER BY database_name;",
+	                          DBConfig::GetConfig(context).SystemObjectName("databases"));
 }
 
 static string PragmaShowDatabases(ClientContext &context, const FunctionParameters &parameters) {
-	return PragmaShowDatabases();
+	return PragmaShowDatabases(context);
 }
 
-string PragmaShowVariables() {
-	return "SELECT * FROM duckdb_variables() ORDER BY name";
+string PragmaShowVariables(ClientContext &context) {
+	return StringUtil::Format("SELECT * FROM %s() ORDER BY name",
+	                          DBConfig::GetConfig(context).SystemObjectName("variables"));
 }
 
 static string PragmaDatabaseList(ClientContext &context, const FunctionParameters &parameters) {
@@ -127,11 +133,12 @@ static string PragmaCollations(ClientContext &context, const FunctionParameters 
 }
 
 static string PragmaFunctionsQuery(ClientContext &context, const FunctionParameters &parameters) {
-	return "SELECT function_name AS name, upper(function_type) AS type, parameter_types AS parameters, varargs, "
-	       "return_type, has_side_effects AS side_effects"
-	       " FROM duckdb_functions()"
-	       " WHERE function_type IN ('scalar', 'aggregate')"
-	       " ORDER BY 1;";
+	return StringUtil::Format("SELECT function_name AS name, upper(function_type) AS type, parameter_types AS "
+	                          "parameters, varargs, return_type, has_side_effects AS side_effects"
+	                          " FROM %s()"
+	                          " WHERE function_type IN ('scalar', 'aggregate')"
+	                          " ORDER BY 1;",
+	                          DBConfig::GetConfig(context).SystemObjectName("functions"));
 }
 
 string PragmaShow(const string &table_name) {
@@ -147,8 +154,9 @@ static string PragmaVersion(ClientContext &context, const FunctionParameters &pa
 }
 
 static string PragmaExtensionVersions(ClientContext &context, const FunctionParameters &parameters) {
-	return "select extension_name, extension_version, install_mode, installed_from from duckdb_extensions() where "
-	       "installed";
+	return StringUtil::Format(
+	    "select extension_name, extension_version, install_mode, installed_from from %s() where installed",
+	    DBConfig::GetConfig(context).SystemObjectName("extensions"));
 }
 
 static string PragmaPlatform(ClientContext &context, const FunctionParameters &parameters) {

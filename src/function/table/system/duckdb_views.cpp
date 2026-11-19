@@ -172,7 +172,8 @@ void DuckDBViewsFunction(ClientContext &context, TableFunctionInput &data_p, Dat
 }
 
 void DuckDBViewsFun::RegisterFunction(BuiltinFunctions &set) {
-	TableFunction duckdb_views("duckdb_views", {}, DuckDBViewsFunction, DuckDBViewsBind, DuckDBViewsInit);
+	TableFunction duckdb_views(set.SystemObjectName("views"), {}, DuckDBViewsFunction, DuckDBViewsBind,
+	                           DuckDBViewsInit);
 	duckdb_views.projection_pushdown = true;
 	duckdb_views.pushdown_complex_filter = DuckDBSystemIncludeHiddenBindData::PushdownDatabaseFilters;
 	duckdb_views.GetSignature().AddKeywordOnly("include_hidden", LogicalType::BOOLEAN, Value::BOOLEAN(false));

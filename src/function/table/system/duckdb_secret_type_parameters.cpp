@@ -99,8 +99,9 @@ void DuckDBSecretTypeParametersFunction(ClientContext &context, TableFunctionInp
 }
 
 void DuckDBSecretTypeParametersFun::RegisterFunction(BuiltinFunctions &set) {
-	set.AddFunction(TableFunction("duckdb_secret_type_parameters", {}, DuckDBSecretTypeParametersFunction,
-	                              DuckDBSecretTypeParametersBind, DuckDBSecretTypeParametersInit));
+	set.AddFunction(TableFunction(set.SystemObjectName("secret_type_parameters"), {},
+	                              DuckDBSecretTypeParametersFunction, DuckDBSecretTypeParametersBind,
+	                              DuckDBSecretTypeParametersInit));
 }
 
 } // namespace duckdb

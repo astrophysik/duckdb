@@ -193,7 +193,8 @@ void EnableLoggingFun::RegisterFunction(BuiltinFunctions &set) {
 	auto disable_fun = TableFunction("disable_logging", {}, DisableLogging, BindDisableLogging, nullptr, nullptr);
 	set.AddFunction(disable_fun);
 
-	auto truncate_fun = TableFunction("truncate_duckdb_logs", {}, TruncateLogs, BindTruncateLogs, nullptr, nullptr);
+	auto truncate_fun = TableFunction(Identifier("truncate_" + set.SystemObjectName("logs").GetIdentifierName()), {},
+	                                  TruncateLogs, BindTruncateLogs, nullptr, nullptr);
 	set.AddFunction(truncate_fun);
 }
 

@@ -1,11 +1,17 @@
 #include "duckdb/catalog/default/default_table_functions.hpp"
+#include "duckdb/catalog/catalog.hpp"
 #include "duckdb/parser/expression/columnref_expression.hpp"
 #include "duckdb/catalog/catalog_entry/table_macro_catalog_entry.hpp"
 #include "duckdb/parser/parser.hpp"
 #include "duckdb/parser/parsed_data/create_macro_info.hpp"
 #include "duckdb/function/table_macro_function.hpp"
 #include "duckdb/main/client_context.hpp"
+#include "duckdb/main/config.hpp"
 #include "duckdb/main/database.hpp"
+#include "duckdb/common/mutex.hpp"
+#include "duckdb/common/unordered_map.hpp"
+
+#include <absl/strings/str_cat.h>
 
 namespace duckdb {
 
@@ -68,14 +74,23 @@ SELECT
    bar(count, 0, max(count) over ()) AS bar
 FROM histogram_values(source, col_name, bin_count := bin_count, technique := technique);
 )"},
-	{DEFAULT_SCHEMA, "duckdb_logs_parsed", {"log_type"}, {}, R"(
-SELECT * EXCLUDE (message), UNNEST(parse_duckdb_log_message(log_type, message))
-FROM duckdb_logs(denormalized_table=1)
+	{nullptr, nullptr, {nullptr}, {{nullptr, nullptr}}, nullptr}
+	};
+
+struct DefaultSystemTableMacro {
+	DefaultTableMacro macro;
+	const char *references[3];
+};
+
+static const DefaultSystemTableMacro system_table_macros[] = {
+	{{DEFAULT_SCHEMA, "logs_parsed", {"log_type"}, {}, R"(
+SELECT * EXCLUDE (message), UNNEST(parse_%s(log_type, message))
+FROM %s(denormalized_table=1)
 WHERE type ILIKE log_type
-)"},
-	{DEFAULT_SCHEMA, "duckdb_profiling_settings", {}, {}, R"(
+)"}, {"log_message", "logs"}},
+	{{DEFAULT_SCHEMA, "profiling_settings", {}, {}, R"(
 SELECT * EXCLUDE(input_type, scope, aliases, typed_value)
-  FROM duckdb_settings(deprecated := false)
+  FROM %s(deprecated := false)
   WHERE name IN (
       'enable_profiling',
       'profiling_coverage',
@@ -83,13 +98,36 @@ SELECT * EXCLUDE(input_type, scope, aliases, typed_value)
       'profiling_mode',
       'tracked_metrics'
   );
-)"},
-	{nullptr, nullptr, {nullptr}, {{nullptr, nullptr}}, nullptr}
+)"}, {"settings"}},
+	{{nullptr, nullptr, {nullptr}, {{nullptr, nullptr}}, nullptr}, {}}
 	};
 // clang-format on
 
+namespace {
+
+struct SystemTableMacroNames {
+	mutex lock;
+	unordered_map<string, unique_ptr<vector<string>>> by_prefix;
+};
+
+const vector<string> &SystemTableMacroNamesFor(const string &prefix) {
+	static auto &tables = *new SystemTableMacroNames();
+	lock_guard<mutex> guard(tables.lock);
+	auto &names = tables.by_prefix[prefix];
+	if (!names) {
+		names = make_uniq<vector<string>>();
+		for (idx_t index = 0; system_table_macros[index].macro.name != nullptr; index++) {
+			names->push_back(absl::StrCat(prefix, system_table_macros[index].macro.name));
+		}
+	}
+	return *names;
+}
+
+} // namespace
+
 DefaultTableFunctionGenerator::DefaultTableFunctionGenerator(Catalog &catalog, SchemaCatalogEntry &schema)
-    : DefaultGenerator(catalog), schema(schema) {
+    : DefaultGenerator(catalog), schema(schema),
+      system_names(SystemTableMacroNamesFor(DBConfig::GetConfig(catalog.GetDatabase()).options.system_object_prefix)) {
 }
 
 unique_ptr<CreateMacroInfo>
@@ -149,6 +187,17 @@ unique_ptr<CatalogEntry> DefaultTableFunctionGenerator::CreateDefaultEntry(Clien
 	if (macro) {
 		return CreateTableMacroEntry(catalog, schema, *macro);
 	}
+	for (idx_t index = 0; index < system_names.size(); index++) {
+		auto &system_macro = system_table_macros[index];
+		if (entry_name != system_names[index] || !ServesDefaults(schema.name, system_macro.macro.schema)) {
+			continue;
+		}
+		auto sql = SystemObjectSQL(system_macro.macro.macro, system_macro.references);
+		auto definition = system_macro.macro;
+		definition.name = system_names[index].c_str();
+		definition.macro = sql.c_str();
+		return CreateTableMacroEntry(catalog, schema, definition);
+	}
 	return nullptr;
 }
 
@@ -160,6 +209,11 @@ vector<Identifier> DefaultTableFunctionGenerator::GetDefaultEntries() {
 		}
 		if (ServesDefaults(schema.name, internal_table_macros[index].schema)) {
 			result.emplace_back(internal_table_macros[index].name);
+		}
+	}
+	for (idx_t index = 0; index < system_names.size(); index++) {
+		if (ServesDefaults(schema.name, system_table_macros[index].macro.schema)) {
+			result.emplace_back(system_names[index]);
 		}
 	}
 	return result;

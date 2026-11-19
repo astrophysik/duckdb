@@ -1,6 +1,8 @@
 #include "duckdb/catalog/default/default_generator.hpp"
 #include "duckdb/catalog/catalog.hpp"
 #include "duckdb/catalog/catalog_transaction.hpp"
+#include "duckdb/common/string_format.hpp"
+#include "duckdb/main/config.hpp"
 
 namespace duckdb {
 
@@ -28,6 +30,19 @@ bool DefaultGenerator::ServesDefaults(const Identifier &schema, const Identifier
 	}
 	auto default_schema = catalog.GetDefaultSchema();
 	return defaults == DEFAULT_SCHEMA && default_schema && schema == *default_schema;
+}
+
+string DefaultGenerator::SystemObjectSQL(const char *sql, const char *const references[]) const {
+	auto &config = DBConfig::GetConfig(catalog.GetDatabase());
+	vector<string> names;
+	for (idx_t index = 0; references[index]; index++) {
+		names.push_back(config.SystemObjectName(references[index]));
+	}
+	vector<FormatArgument> arguments;
+	for (auto &name : names) {
+		arguments.emplace_back(std::string_view(name));
+	}
+	return StringFormat::Printf(sql, arguments);
 }
 
 } // namespace duckdb

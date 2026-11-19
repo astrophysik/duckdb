@@ -31,6 +31,10 @@ public:
 public:
 	unique_ptr<CatalogEntry> CreateDefaultEntry(ClientContext &context, const Identifier &entry_name) override;
 	vector<Identifier> GetDefaultEntries() override;
+
+private:
+	unique_ptr<CreateFunctionInfo> GetDefaultFunction(const Identifier &input_schema,
+	                                                  const Identifier &input_name) const;
 };
 
 } // namespace duckdb

@@ -160,8 +160,8 @@ void DuckDBSequencesFunction(ClientContext &context, TableFunctionInput &data_p,
 }
 
 void DuckDBSequencesFun::RegisterFunction(BuiltinFunctions &set) {
-	auto function =
-	    TableFunction("duckdb_sequences", {}, DuckDBSequencesFunction, DuckDBSequencesBind, DuckDBSequencesInit);
+	auto function = TableFunction(set.SystemObjectName("sequences"), {}, DuckDBSequencesFunction, DuckDBSequencesBind,
+	                              DuckDBSequencesInit);
 	function.pushdown_complex_filter = DuckDBSystemIncludeHiddenBindData::PushdownDatabaseFilters;
 	function.GetSignature().AddKeywordOnly("include_hidden", LogicalType::BOOLEAN, Value::BOOLEAN(false));
 	set.AddFunction(std::move(function));

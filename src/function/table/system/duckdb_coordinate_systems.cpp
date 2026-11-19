@@ -133,7 +133,7 @@ static void DuckDBCoordinateSystemsFunction(ClientContext &context, TableFunctio
 }
 
 void DuckDBCoordinateSystemsFun::RegisterFunction(BuiltinFunctions &set) {
-	set.AddFunction(TableFunction("duckdb_coordinate_systems", {}, DuckDBCoordinateSystemsFunction,
+	set.AddFunction(TableFunction(set.SystemObjectName("coordinate_systems"), {}, DuckDBCoordinateSystemsFunction,
 	                              DuckDBCoordinateSystemsBind, DuckDBCoordinateSystemsInit));
 }
 

@@ -9,6 +9,7 @@
 #include "duckdb/common/arrow/nanoarrow/nanoarrow.hpp"
 
 #include "duckdb/common/exception.hpp"
+#include "duckdb/main/config.hpp"
 #include "duckdb/main/connection.hpp"
 #include "duckdb/common/adbc/options.h"
 #include "duckdb/common/adbc/single_batch_array_stream.hpp"
@@ -2649,6 +2650,17 @@ AdbcStatusCode ConnectionGetObjects(struct AdbcConnection *connection, int depth
 		}
 		table_type_condition += ")";
 	}
+	if (!connection || !connection->private_data) {
+		SetError(error, "Connection is invalid");
+		return ADBC_STATUS_INVALID_ARGUMENT;
+	}
+	auto conn_wrapper = static_cast<duckdb::DuckDBAdbcConnectionWrapper *>(connection->private_data);
+	if (!conn_wrapper->connection) {
+		SetError(error, "Connection is not initialized");
+		return ADBC_STATUS_INVALID_STATE;
+	}
+	auto &config =
+	    duckdb::DBConfig::GetConfig(*reinterpret_cast<duckdb::Connection *>(conn_wrapper->connection)->context);
 
 	std::string query;
 	switch (depth) {
@@ -2916,7 +2928,7 @@ AdbcStatusCode ConnectionGetObjects(struct AdbcConnection *connection, int depth
 								'BIT': -7,
 								'STRUCT': 2002,
 							} AS type_codes
-						FROM duckdb_columns()
+						FROM %s()
 						WHERE column_name LIKE %s
 					) cols
 					GROUP BY table_catalog, table_schema, table_name
@@ -2940,7 +2952,7 @@ AdbcStatusCode ConnectionGetObjects(struct AdbcConnection *connection, int depth
 								}
 							)
 						}) table_constraints
-					FROM duckdb_constraints()
+					FROM %s()
 					WHERE
 						constraint_type NOT IN ('NOT NULL') AND
 						list_has_any(
@@ -2994,8 +3006,9 @@ AdbcStatusCode ConnectionGetObjects(struct AdbcConnection *connection, int depth
 				WHERE catalog_name LIKE %s
 				GROUP BY catalog_name
 				)",
-		                                   column_name_filter, column_name_filter, table_name_filter,
-		                                   table_type_condition, db_schema_filter, catalog_filter);
+		                                   config.SystemObjectName("columns"), column_name_filter,
+		                                   config.SystemObjectName("constraints"), column_name_filter,
+		                                   table_name_filter, table_type_condition, db_schema_filter, catalog_filter);
 		break;
 	default:
 		SetError(error, "Invalid value of Depth");
@@ -3345,13 +3358,14 @@ AdbcStatusCode ConnectionGetStatistics(struct AdbcConnection *connection, const 
 	// approximate values regardless of the `approximate` argument.
 	auto query = duckdb::StringUtil::Format(R"(
 		SELECT database_name, schema_name, table_name, estimated_size
-		FROM duckdb_tables()
+		FROM %s()
 		WHERE NOT internal
 			AND database_name LIKE %s
 			AND schema_name LIKE %s
 			AND table_name LIKE %s
 		ORDER BY database_name, schema_name, table_name
 	)",
+	                                        duckdb::DBConfig::GetConfig(*conn->context).SystemObjectName("tables"),
 	                                        createFilter(catalog), createFilter(db_schema), createFilter(table_name));
 	auto result = conn->Query(query);
 	if (result->HasError()) {

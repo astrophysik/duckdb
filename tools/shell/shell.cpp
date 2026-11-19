@@ -2311,10 +2311,14 @@ bool ShellState::DisplaySchemas(const vector<string> &args) {
 	renderer->show_header = false;
 
 	string sSelect;
-	// by default the stored SQL is pretty-printed through the duckdb_format_sql function
+	// by default the stored SQL is pretty-printed through the SQL formatter function
 	// (unless --no-indent/--no-format was passed)
-	sSelect +=
-	    bFormat ? "SELECT duckdb_format_sql(sql) FROM sqlite_master WHERE " : "SELECT sql FROM sqlite_master WHERE ";
+	if (bFormat) {
+		sSelect += StringUtil::Format("SELECT %s(sql) FROM sqlite_master WHERE ",
+		                              duckdb::DBConfig::GetConfig(*conn->context).SystemObjectName("format_sql"));
+	} else {
+		sSelect += "SELECT sql FROM sqlite_master WHERE ";
+	}
 	if (zName) {
 		auto zQarg = StringUtil::Format("%s", SQLString(zName));
 		int bGlob = strchr(zName, '*') != 0 || strchr(zName, '?') != 0 || strchr(zName, '[') != 0;
@@ -2397,23 +2401,25 @@ MetadataResult ShellState::DisplayTables(const vector<string> &args) {
 	if (!schema_filter.empty()) {
 		schema_filter_str = StringUtil::Format(" AND columns.schema_name ILIKE %s", SQLString(schema_filter));
 	}
+	auto &con = *conn;
+	auto &config = duckdb::DBConfig::GetConfig(*con.context);
 	auto query = StringUtil::Format(R"(
 SELECT columns.database_name, columns.schema_name, columns.table_name, list(
 	struct_pack(column_name, data_type, is_primary_key := c.column_index IS NOT NULL) order by column_index),
 	t.estimated_size AS estimated_size, t.table_oid AS table_oid
-FROM duckdb_columns() columns
-LEFT JOIN duckdb_tables() t USING (table_oid)
+FROM %s() columns
+LEFT JOIN %s() t USING (table_oid)
 LEFT JOIN (
 	SELECT table_oid, UNNEST(constraint_column_indexes)+1 column_index
-	FROM duckdb_constraints()
+	FROM %s()
 	WHERE constraint_type='PRIMARY KEY') c
 USING (table_oid, column_index)
 WHERE NOT columns.internal%s%s
 GROUP BY ALL;
 )",
-	                                schema_filter_str, name_filter);
+	                                config.SystemObjectName("columns"), config.SystemObjectName("tables"),
+	                                config.SystemObjectName("constraints"), schema_filter_str, name_filter);
 
-	auto &con = *conn;
 	auto query_result = con.Query(query);
 	if (query_result->HasError()) {
 		PrintDatabaseError(query_result->GetError());
@@ -2491,12 +2497,14 @@ MetadataResult ShellState::DisplayManual(const vector<string> &args) {
 	// each part is used directly as a case-insensitive LIKE pattern: a plain word matches exactly,
 	// while wildcards ("%abs") are honored. A pattern may resolve to several distinct functions - each
 	// is rendered as its own manual entry
-	auto prepared = con.Prepare(R"(
+	auto functions = duckdb::DBConfig::GetConfig(*con.context).SystemObjectName("functions");
+	auto prepared = con.Prepare(StringUtil::Format(R"(
 SELECT function_name, function_type, return_type, parameters, parameter_types, varargs, description, examples,
        database_name, schema_name
-FROM duckdb_functions()
+FROM %s()
 WHERE database_name ILIKE ? AND schema_name ILIKE ? AND function_name ILIKE ?
-ORDER BY function_name, function_type, database_name, schema_name, length(parameter_types), parameter_types)");
+ORDER BY function_name, function_type, database_name, schema_name, length(parameter_types), parameter_types)",
+	                                               functions));
 	if (prepared->HasError()) {
 		PrintDatabaseError(prepared->GetError());
 		return MetadataResult::FAIL;
@@ -2527,16 +2535,17 @@ ORDER BY function_name, function_type, database_name, schema_name, length(parame
 		PrintF(PrintOutput::STDERR, "No function matches '%s'\n", args[1]);
 		// suggest similarly-named functions within the same qualifiers (typo tolerance) via
 		// Jaro-Winkler similarity
-		auto suggest_prepared = con.Prepare(R"(
+		auto suggest_prepared = con.Prepare(StringUtil::Format(R"(
 SELECT name FROM (
   SELECT min(function_name) AS name, max(jaro_winkler_similarity(lower(function_name), lower(?))) AS score
-  FROM duckdb_functions()
+  FROM %s()
   WHERE database_name ILIKE ? AND schema_name ILIKE ?
   GROUP BY lower(function_name)
 )
 WHERE score >= 0.7
 ORDER BY score DESC, name
-LIMIT 5)");
+LIMIT 5)",
+		                                                       functions));
 		if (!suggest_prepared->HasError()) {
 			auto suggest_result =
 			    suggest_prepared->Execute(name_pattern.c_str(), database_pattern.c_str(), schema_pattern.c_str());
@@ -2640,11 +2649,12 @@ MetadataResult ShellState::DisplayEntries(const vector<string> &args, char type)
 			schema_filter_str = "\n  WHERE schema_name LIKE ?1";
 			name_filter = "WHERE ao.name LIKE ?2";
 		}
+		auto &config = duckdb::DBConfig::GetConfig(*conn->context);
 		s = StringUtil::Format(R"(
 WITH all_objects AS (
-  SELECT schema_name, table_name as name FROM duckdb_tables%s
+  SELECT schema_name, table_name as name FROM %s%s
   UNION ALL
-  SELECT schema_name, view_name as name FROM duckdb_views%s
+  SELECT schema_name, view_name as name FROM %s%s
 ),
 name_counts AS (
   SELECT name, COUNT(*) as count FROM all_objects
@@ -2662,7 +2672,8 @@ disambiguated AS (
 )
 SELECT DISTINCT display_name FROM disambiguated ORDER BY display_name
 )",
-		                       schema_filter_str, schema_filter_str, name_filter);
+		                       config.SystemObjectName("tables"), schema_filter_str, config.SystemObjectName("views"),
+		                       schema_filter_str, name_filter);
 	} else {
 		// For indexes, use the original SQLite approach
 		s = R"(
@@ -3310,8 +3321,10 @@ MetadataResult ShellState::FormatSQL(string &sql) {
 		// no input
 		return MetadataResult::SUCCESS;
 	}
-	// Format through the duckdb_format_sql SQL function using a prepared statement.
-	auto result = conn->Query("SELECT duckdb_format_sql($1)", duckdb::Value(sql));
+	// Format through the SQL formatter function using a prepared statement.
+	auto result = conn->Query(
+	    StringUtil::Format("SELECT %s($1)", duckdb::DBConfig::GetConfig(*conn->context).SystemObjectName("format_sql")),
+	    duckdb::Value(sql));
 	if (result->HasError()) {
 		PrintF(PrintOutput::STDERR, "%s: %s\n", program_name, result->GetError().c_str());
 		return MetadataResult::FAIL;
@@ -3423,7 +3436,8 @@ static char *linenoise_format(const char *zLine) {
 		return nullptr;
 	}
 	try {
-		auto prepared = state.conn->Prepare("SELECT duckdb_format_sql($1)");
+		auto prepared = state.conn->Prepare(StringUtil::Format(
+		    "SELECT %s($1)", duckdb::DBConfig::GetConfig(*state.conn->context).SystemObjectName("format_sql")));
 		if (prepared->HasError()) {
 			return nullptr;
 		}
@@ -3688,7 +3702,8 @@ void ShellState::PrintAgentHelp(PrintOutput output, bool startup) {
 	       rows, bytes, cell, (size_t)ESTIMATE_MIN_ROWS);
 	PrintF(output,
 	       "tips: SET max_execution_time=<ms> bounds a query; DESCRIBE <query> gives the result columns "
-	       "without running it; SUMMARIZE <table>; .tables; duckdb_functions() has descriptions and examples\n");
+	       "without running it; SUMMARIZE <table>; .tables; %s() has descriptions and examples\n",
+	       duckdb::DBConfig::GetConfig(*conn->context).SystemObjectName("functions"));
 	PrintF(output,
 	       "switches: -agent / -no-agent force the mode, and so does DUCKDB_AGENT_MODE=1 / 0 in the environment "
 	       "(the flags win); an output mode flag (-csv, -json, ...) leaves it off; .startup_text none in "

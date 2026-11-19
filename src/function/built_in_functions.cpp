@@ -24,6 +24,10 @@ BuiltinFunctions::BuiltinFunctions(CatalogTransaction transaction, Catalog &cata
 BuiltinFunctions::~BuiltinFunctions() {
 }
 
+Identifier BuiltinFunctions::SystemObjectName(std::string_view name) const {
+	return Identifier(DBConfig::GetConfig(catalog.GetDatabase()).SystemObjectName(name));
+}
+
 static void AsBuiltin(Catalog &catalog, CreateInfo &info) {
 	info.internal = true;
 	auto &name = info.GetQualifiedName();
@@ -62,7 +66,10 @@ void BuiltinFunctions::AddFunction(const string &name, PragmaFunctionSet functio
 }
 
 void BuiltinFunctions::AddFunction(ScalarFunction function) {
-	CreateScalarFunctionInfo info(std::move(function));
+	AddFunction(CreateScalarFunctionInfo(std::move(function)));
+}
+
+void BuiltinFunctions::AddFunction(CreateScalarFunctionInfo info) {
 	AsBuiltin(catalog, info);
 	catalog.CreateFunction(transaction, info);
 }

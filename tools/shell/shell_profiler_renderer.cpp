@@ -233,8 +233,8 @@ static string WriteProfileAndOpen(ShellState &state, const string &html) {
 	return path;
 }
 
-//! HTML renderer that pretty-prints the query SQL via duckdb_format_sql. This requires the autocomplete extension (and
-//! a catalog query), so it lives in the CLI rather than in core's HTMLTreeRenderer.
+//! HTML renderer that pretty-prints the query SQL via the SQL formatter function. This requires the autocomplete
+//! extension (and a catalog query), so it lives in the CLI rather than in core's HTMLTreeRenderer.
 class ShellHTMLTreeRenderer : public duckdb::HTMLTreeRenderer {
 protected:
 	duckdb::string FormatSQL(const duckdb::string &sql) override {
@@ -249,7 +249,8 @@ protected:
 				return sql;
 			}
 			duckdb::Connection con(*context.db);
-			auto prepared = con.Prepare("SELECT duckdb_format_sql($1)");
+			auto prepared = con.Prepare(duckdb::StringUtil::Format(
+			    "SELECT %s($1)", duckdb::DBConfig::GetConfig(context).SystemObjectName("format_sql")));
 			if (!prepared || prepared->HasError()) {
 				return sql;
 			}

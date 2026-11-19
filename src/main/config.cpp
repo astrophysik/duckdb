@@ -19,6 +19,7 @@
 #include "duckdb/common/thread.hpp"
 #endif
 
+#include <absl/strings/str_cat.h>
 #include <cinttypes>
 #include <cstdio>
 
@@ -625,6 +626,10 @@ bool DBConfig::IsInMemoryDatabase(const char *database_path) {
 		return true;
 	}
 	return false;
+}
+
+string DBConfig::SystemObjectName(std::string_view name) const {
+	return absl::StrCat(options.system_object_prefix, name);
 }
 
 CastFunctionSet &DBConfig::GetCastFunctions() {

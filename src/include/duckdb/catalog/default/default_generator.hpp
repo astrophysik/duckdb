@@ -37,6 +37,7 @@ public:
 
 protected:
 	bool ServesDefaults(const Identifier &schema, const Identifier &defaults) const;
+	string SystemObjectSQL(const char *sql, const char *const references[]) const;
 };
 
 } // namespace duckdb

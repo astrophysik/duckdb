@@ -68,8 +68,8 @@ void DuckDBEvictionQueuesFunction(ClientContext &context, TableFunctionInput &da
 }
 
 void DuckDBEvictionQueuesFun::RegisterFunction(BuiltinFunctions &set) {
-	set.AddFunction(TableFunction("duckdb_eviction_queues", {}, DuckDBEvictionQueuesFunction, DuckDBEvictionQueuesBind,
-	                              DuckDBEvictionQueuesInit));
+	set.AddFunction(TableFunction(set.SystemObjectName("eviction_queues"), {}, DuckDBEvictionQueuesFunction,
+	                              DuckDBEvictionQueuesBind, DuckDBEvictionQueuesInit));
 }
 
 } // namespace duckdb

@@ -255,7 +255,7 @@ void DuckDBExtensionsFunction(ClientContext &context, TableFunctionInput &data_p
 }
 
 void DuckDBExtensionsFun::RegisterFunction(BuiltinFunctions &set) {
-	TableFunctionSet functions("duckdb_extensions");
+	TableFunctionSet functions(set.SystemObjectName("extensions"));
 	functions.AddFunction(TableFunction({}, DuckDBExtensionsFunction, DuckDBExtensionsBind, DuckDBExtensionsInit));
 	set.AddFunction(functions);
 }

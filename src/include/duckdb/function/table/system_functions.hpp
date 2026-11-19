@@ -245,6 +245,10 @@ struct EnableLoggingFun {
 	static void RegisterFunction(BuiltinFunctions &set);
 };
 
+struct ParseLogMessageFun {
+	static void RegisterFunction(BuiltinFunctions &set);
+};
+
 struct EnableProfilingFun {
 	static void RegisterFunction(BuiltinFunctions &set);
 };

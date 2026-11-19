@@ -170,7 +170,7 @@ void RegisterExternalResourceTypeFun::RegisterFunction(BuiltinFunctions &set) {
 }
 
 void DuckDBExternalResourceTypesFun::RegisterFunction(BuiltinFunctions &set) {
-	set.AddFunction(TableFunction("duckdb_external_resource_types", {}, ExternalResourceTypesFunction,
+	set.AddFunction(TableFunction(set.SystemObjectName("external_resource_types"), {}, ExternalResourceTypesFunction,
 	                              ExternalResourceTypesBind, ExternalResourceTypesInit));
 }
 

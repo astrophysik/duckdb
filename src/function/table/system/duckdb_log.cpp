@@ -1,6 +1,7 @@
 #include "duckdb/function/table/system_functions.hpp"
 
 #include "duckdb/main/client_context.hpp"
+#include "duckdb/main/config.hpp"
 #include "duckdb/parser/parser.hpp"
 #include "duckdb/parser/parser_options.hpp"
 #include "duckdb/logging/log_manager.hpp"
@@ -104,10 +105,13 @@ unique_ptr<TableRef> DuckDBLogBindReplace(ClientContext &context, TableFunctionB
 
 	// We cannot scan ALL_LOGS but denormalized_table was requested: we need to inject the join between LOG_ENTRIES and
 	// LOG_CONTEXTS
-	string sub_query_string = "SELECT l.context_id, scope, connection_id, transaction_id, query_id, thread_id, "
-	                          "timestamp, type, log_level, message"
-	                          " FROM (SELECT row_number() OVER () AS rowid, * FROM duckdb_logs()) as l JOIN "
-	                          "duckdb_log_contexts() as c ON l.context_id=c.context_id order by timestamp, l.rowid;";
+	auto &config = DBConfig::GetConfig(context);
+	auto sub_query_string =
+	    StringUtil::Format("SELECT l.context_id, scope, connection_id, transaction_id, query_id, thread_id, "
+	                       "timestamp, type, log_level, message"
+	                       " FROM (SELECT row_number() OVER () AS rowid, * FROM %s()) as l JOIN "
+	                       "%s() as c ON l.context_id=c.context_id order by timestamp, l.rowid;",
+	                       config.SystemObjectName("logs"), config.SystemObjectName("log_contexts"));
 	Parser parser(context);
 	parser.ParseQuery(sub_query_string);
 	auto select_stmt = unique_ptr_cast<SQLStatement, SelectStatement>(std::move(parser.statements[0]));
@@ -116,7 +120,7 @@ unique_ptr<TableRef> DuckDBLogBindReplace(ClientContext &context, TableFunctionB
 }
 
 void DuckDBLogFun::RegisterFunction(BuiltinFunctions &set) {
-	TableFunction logs_fun("duckdb_logs", {}, DuckDBLogFunction, DuckDBLogBind, DuckDBLogInit);
+	TableFunction logs_fun(set.SystemObjectName("logs"), {}, DuckDBLogFunction, DuckDBLogBind, DuckDBLogInit);
 	logs_fun.bind_replace = DuckDBLogBindReplace;
 	logs_fun.table_scan_progress = DuckDBLogProgress;
 	logs_fun.GetSignature().WithTypedKwargs(

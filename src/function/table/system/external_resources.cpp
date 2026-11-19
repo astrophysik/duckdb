@@ -210,7 +210,7 @@ static void ExternalResourcesFunction(ClientContext &context, TableFunctionInput
 }
 
 void DuckDBExternalResourcesFun::RegisterFunction(BuiltinFunctions &set) {
-	TableFunction fn("duckdb_external_resources", {}, ExternalResourcesFunction, ExternalResourcesBind,
+	TableFunction fn(set.SystemObjectName("external_resources"), {}, ExternalResourcesFunction, ExternalResourcesBind,
 	                 ExternalResourcesInit);
 	fn.GetSignature().WithTypedKwargs("options",
 	                                  [](TypedKwargs &options) { options.Add("discover", LogicalType::BOOLEAN); });

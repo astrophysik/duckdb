@@ -1,4 +1,5 @@
 #include "duckdb/execution/expression_executor.hpp"
+#include "duckdb/main/config.hpp"
 #include "duckdb/parser/expression/constant_expression.hpp"
 #include "duckdb/parser/expression/function_expression.hpp"
 #include "duckdb/parser/expression/star_expression.hpp"
@@ -35,7 +36,8 @@ BoundStatement Binder::Bind(ExternalResourceStatement &stmt) {
 			children.push_back(std::move(all_expr));
 		}
 		auto table_function = make_uniq<TableFunctionRef>();
-		table_function->function = make_uniq<FunctionExpression>("duckdb_external_resources", std::move(children));
+		table_function->function = make_uniq<FunctionExpression>(
+		    Identifier(DBConfig::GetConfig(context).SystemObjectName("external_resources")), std::move(children));
 
 		auto select_node = make_uniq<SelectNode>();
 		select_node->select_list.push_back(make_uniq<StarExpression>());

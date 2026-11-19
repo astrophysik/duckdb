@@ -179,7 +179,7 @@ void DuckDBIndexesFunction(ClientContext &context, TableFunctionInput &data_p, D
 }
 
 void DuckDBIndexesFun::RegisterFunction(BuiltinFunctions &set) {
-	TableFunction fn("duckdb_indexes", {}, DuckDBIndexesFunction, DuckDBIndexesBind, DuckDBIndexesInit);
+	TableFunction fn(set.SystemObjectName("indexes"), {}, DuckDBIndexesFunction, DuckDBIndexesBind, DuckDBIndexesInit);
 	fn.pushdown_complex_filter = DuckDBSystemIncludeHiddenBindData::PushdownDatabaseFilters;
 	fn.GetSignature().AddKeywordOnly("include_hidden", LogicalType::BOOLEAN, Value::BOOLEAN(false));
 	set.AddFunction(fn);

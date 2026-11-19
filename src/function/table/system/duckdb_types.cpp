@@ -269,7 +269,7 @@ void DuckDBTypesFunction(ClientContext &context, TableFunctionInput &data_p, Dat
 }
 
 void DuckDBTypesFun::RegisterFunction(BuiltinFunctions &set) {
-	TableFunction fn("duckdb_types", {}, DuckDBTypesFunction, DuckDBTypesBind, DuckDBTypesInit);
+	TableFunction fn(set.SystemObjectName("types"), {}, DuckDBTypesFunction, DuckDBTypesBind, DuckDBTypesInit);
 	fn.pushdown_complex_filter = DuckDBSystemIncludeHiddenBindData::PushdownDatabaseFilters;
 	fn.GetSignature().AddKeywordOnly("include_hidden", LogicalType::BOOLEAN, Value::BOOLEAN(false));
 	set.AddFunction(fn);

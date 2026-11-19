@@ -167,19 +167,21 @@ BoundStatement Binder::BindDescribeTable(ShowRef &ref) {
 
 	string sql;
 	if (lname == "\"databases\"") {
-		sql = PragmaShowDatabases();
+		sql = PragmaShowDatabases(context);
 	} else if (lname == "\"schemas\"") {
-		sql = "SELECT "
-		      " schema.database_name, "
-		      " schema.schema_name, "
-		      " coalesce((select current_schema() = schema.schema_name) "
-		      "  and (select current_database() = schema.database_name), false) \"current\" "
-		      "FROM duckdb_schemas() schema "
-		      "JOIN duckdb_databases dbs USING (database_oid) "
-		      "WHERE dbs.internal = false "
-		      "ORDER BY all;";
+		auto &config = DBConfig::GetConfig(context);
+		sql = StringUtil::Format("SELECT "
+		                         " schema.database_name, "
+		                         " schema.schema_name, "
+		                         " coalesce((select current_schema() = schema.schema_name) "
+		                         "  and (select current_database() = schema.database_name), false) \"current\" "
+		                         "FROM %s() schema "
+		                         "JOIN %s dbs USING (database_oid) "
+		                         "WHERE dbs.internal = false "
+		                         "ORDER BY all;",
+		                         config.SystemObjectName("schemas"), config.SystemObjectName("databases"));
 	} else if (lname == "\"tables\"") {
-		sql = PragmaShowTables();
+		sql = PragmaShowTables(context);
 	} else if (ref.show_type == ShowType::SHOW_FROM) {
 		auto catalog_name = ref.GetCatalogName();
 		auto schema_name = ref.GetSchemaName();
@@ -214,11 +216,11 @@ BoundStatement Binder::BindDescribeTable(ShowRef &ref) {
 				                       catalog_name.GetIdentifierName(), schema_name.GetIdentifierName());
 			}
 		}
-		sql = PragmaShowTables(catalog_name.GetIdentifierName(), schema_name.GetIdentifierName(), schema_oid);
+		sql = PragmaShowTables(context, catalog_name.GetIdentifierName(), schema_name.GetIdentifierName(), schema_oid);
 	} else if (lname == "\"variables\"") {
-		sql = PragmaShowVariables();
+		sql = PragmaShowVariables(context);
 	} else if (lname == "__show_tables_expanded") {
-		sql = PragmaShowTablesExpanded();
+		sql = PragmaShowTablesExpanded(context);
 	} else {
 		sql = PragmaShow(ref.GetTableName().GetIdentifierName());
 	}

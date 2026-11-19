@@ -22,11 +22,11 @@ struct PragmaFunctions {
 	static void RegisterFunction(BuiltinFunctions &set);
 };
 
-string PragmaShowTables(const string &catalog = "", const string &schema = "",
+string PragmaShowTables(ClientContext &context, const string &catalog = "", const string &schema = "",
                         optional_idx schema_oid = optional_idx());
-string PragmaShowTablesExpanded();
-string PragmaShowDatabases();
-string PragmaShowVariables();
+string PragmaShowTablesExpanded(ClientContext &context);
+string PragmaShowDatabases(ClientContext &context);
+string PragmaShowVariables(ClientContext &context);
 string PragmaShow(const string &table_name);
 
 } // namespace duckdb

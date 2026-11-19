@@ -201,7 +201,8 @@ void DuckDBSettingsFunction(ClientContext &context, TableFunctionInput &data_p, 
 }
 
 void DuckDBSettingsFun::RegisterFunction(BuiltinFunctions &set) {
-	TableFunction settings_fun("duckdb_settings", {}, DuckDBSettingsFunction, DuckDBSettingsBind, DuckDBSettingsInit);
+	TableFunction settings_fun(set.SystemObjectName("settings"), {}, DuckDBSettingsFunction, DuckDBSettingsBind,
+	                           DuckDBSettingsInit);
 	settings_fun.GetSignature().WithTypedKwargs("options", [](TypedKwargs &options) {
 		options.Add("debug", LogicalType::BOOLEAN).Add("deprecated", LogicalType::BOOLEAN);
 	});

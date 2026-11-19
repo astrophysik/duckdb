@@ -353,7 +353,8 @@ void DuckDBConstraintsFunction(ClientContext &context, TableFunctionInput &data_
 }
 
 void DuckDBConstraintsFun::RegisterFunction(BuiltinFunctions &set) {
-	TableFunction fn("duckdb_constraints", {}, DuckDBConstraintsFunction, DuckDBConstraintsBind, DuckDBConstraintsInit);
+	TableFunction fn(set.SystemObjectName("constraints"), {}, DuckDBConstraintsFunction, DuckDBConstraintsBind,
+	                 DuckDBConstraintsInit);
 	fn.pushdown_complex_filter = DuckDBSystemIncludeHiddenBindData::PushdownDatabaseFilters;
 	fn.GetSignature().AddKeywordOnly("include_hidden", LogicalType::BOOLEAN, Value::BOOLEAN(false));
 	set.AddFunction(fn);

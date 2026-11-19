@@ -448,7 +448,8 @@ static double DuckDBColumnsProgress(ClientContext &context, const FunctionData *
 }
 
 void DuckDBColumnsFun::RegisterFunction(BuiltinFunctions &set) {
-	TableFunction columns("duckdb_columns", {}, DuckDBColumnsFunction, DuckDBColumnsBind, DuckDBColumnsInit);
+	TableFunction columns(set.SystemObjectName("columns"), {}, DuckDBColumnsFunction, DuckDBColumnsBind,
+	                      DuckDBColumnsInit);
 	columns.table_scan_progress = DuckDBColumnsProgress;
 	columns.pushdown_complex_filter = DuckDBSystemIncludeHiddenBindData::PushdownDatabaseFilters;
 	columns.GetSignature().AddKeywordOnly("include_hidden", LogicalType::BOOLEAN, Value::BOOLEAN(false));

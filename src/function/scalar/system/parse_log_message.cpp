@@ -1,6 +1,7 @@
 #include "duckdb/common/vector/map_vector.hpp"
 #include "duckdb/common/vector/struct_vector.hpp"
-#include "duckdb/function/scalar/system_functions.hpp"
+#include "duckdb/function/table/system_functions.hpp"
+#include "duckdb/parser/parsed_data/create_scalar_function_info.hpp"
 #include "duckdb/execution/expression_executor.hpp"
 #include "duckdb/main/client_data.hpp"
 #include "duckdb/planner/expression/bound_function_expression.hpp"
@@ -79,12 +80,22 @@ void ParseLogMessageFunction(DataChunk &args, ExpressionState &state, Vector &re
 
 } // namespace
 
-ScalarFunction ParseLogMessage::GetFunction() {
+void ParseLogMessageFun::RegisterFunction(BuiltinFunctions &set) {
+	auto name = "parse_" + set.SystemObjectName("log_message").GetIdentifierName();
 	auto fun = ScalarFunction({}, LogicalType::ANY, ParseLogMessageFunction, ParseLogMessageBind, nullptr, nullptr,
 	                          LogicalType(LogicalTypeId::INVALID));
+	fun.name = Identifier(name);
 	fun.GetSignature().AddParameter("type", LogicalType::VARCHAR).AddParameter("message", LogicalType::VARCHAR);
 	fun.SetErrorMode(FunctionErrors::CAN_THROW_RUNTIME_ERROR);
-	return fun;
+
+	FunctionDescription description;
+	description.parameter_names = {"type", "message"};
+	description.parameter_types = {LogicalType::ANY, LogicalType::ANY};
+	description.description = "Parse the message into the expected logical type";
+	description.examples = {name + "('FileSystem', log_message)"};
+	CreateScalarFunctionInfo info(std::move(fun));
+	info.descriptions.push_back(std::move(description));
+	set.AddFunction(std::move(info));
 }
 
 } // namespace duckdb

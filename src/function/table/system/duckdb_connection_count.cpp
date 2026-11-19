@@ -38,7 +38,7 @@ void DuckDBConnectionCountFunction(ClientContext &context, TableFunctionInput &d
 }
 
 void DuckDBConnectionCountFun::RegisterFunction(BuiltinFunctions &set) {
-	set.AddFunction(TableFunction("duckdb_connection_count", {}, DuckDBConnectionCountFunction,
+	set.AddFunction(TableFunction(set.SystemObjectName("connection_count"), {}, DuckDBConnectionCountFunction,
 	                              DuckDBConnectionCountBind, DuckDBConnectionCountInit));
 }
 

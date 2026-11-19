@@ -136,6 +136,7 @@ struct DBConfigOptions {
 	//! Initialize the database with the standard set of DuckDB functions
 	//! You should probably not touch this unless you know what you are doing
 	bool initialize_default_database = true;
+	string system_object_prefix = "duckdb_";
 	//! Enable mbedtls explicitly (overrides OpenSSL if available)
 	bool force_mbedtls = false;
 	//! Attached database names compare case-sensitively
@@ -244,6 +245,7 @@ public:
 	DUCKDB_API static idx_t GetAliasCount();
 	DUCKDB_API static vector<Identifier> GetOptionNames();
 	DUCKDB_API static bool IsInMemoryDatabase(const char *database_path);
+	DUCKDB_API string SystemObjectName(std::string_view name) const;
 
 	DUCKDB_API void AddExtensionOption(const Identifier &name, string description, LogicalType parameter,
 	                                   const Value &default_value = Value(), set_option_callback_t function = nullptr,

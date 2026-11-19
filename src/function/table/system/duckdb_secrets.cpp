@@ -135,7 +135,7 @@ void DuckDBSecretsFunction(ClientContext &context, TableFunctionInput &data_p, D
 }
 
 void DuckDBSecretsFun::RegisterFunction(BuiltinFunctions &set) {
-	TableFunctionSet functions("duckdb_secrets");
+	TableFunctionSet functions(set.SystemObjectName("secrets"));
 	auto fun = TableFunction({}, DuckDBSecretsFunction, DuckDBSecretsBind, DuckDBSecretsInit);
 	fun.GetSignature().WithTypedKwargs("options",
 	                                   [](TypedKwargs &options) { options.Add("redact", LogicalType::BOOLEAN); });

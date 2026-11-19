@@ -89,7 +89,7 @@ static void DuckDBTableSampleFunction(ClientContext &context, TableFunctionInput
 }
 
 void DuckDBTableSample::RegisterFunction(BuiltinFunctions &set) {
-	set.AddFunction(TableFunction("duckdb_table_sample",
+	set.AddFunction(TableFunction(set.SystemObjectName("table_sample"),
 	                              FunctionSignature().AddPositionalOnly("table_name", LogicalType::VARCHAR),
 	                              DuckDBTableSampleFunction, DuckDBTableSampleBind, DuckDBTableSampleInit));
 }

@@ -12,6 +12,7 @@
 #include "duckdb/catalog/catalog_transaction.hpp"
 
 namespace duckdb {
+struct CreateScalarFunctionInfo;
 
 class BuiltinFunctions {
 public:
@@ -21,6 +22,8 @@ public:
 	//! Initialize a catalog with all built-in functions
 	void Initialize();
 
+	Identifier SystemObjectName(std::string_view name) const;
+
 public:
 	void AddFunction(AggregateFunctionSet set);
 	void AddFunction(AggregateFunction function);
@@ -28,6 +31,7 @@ public:
 	void AddFunction(PragmaFunction function);
 	void AddFunction(const string &name, PragmaFunctionSet functions);
 	void AddFunction(ScalarFunction function);
+	void AddFunction(CreateScalarFunctionInfo info);
 	void AddFunction(const vector<string> &names, ScalarFunction function);
 	void AddFunction(TableFunctionSet set);
 	void AddFunction(TableFunction function);

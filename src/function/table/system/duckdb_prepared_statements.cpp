@@ -109,7 +109,7 @@ void DuckDBPreparedStatementsFunction(ClientContext &context, TableFunctionInput
 }
 
 void DuckDBPreparedStatementsFun::RegisterFunction(BuiltinFunctions &set) {
-	set.AddFunction(TableFunction("duckdb_prepared_statements", {}, DuckDBPreparedStatementsFunction,
+	set.AddFunction(TableFunction(set.SystemObjectName("prepared_statements"), {}, DuckDBPreparedStatementsFunction,
 	                              DuckDBPreparedStatementsBind, DuckDBPreparedStatementsInit));
 }
 

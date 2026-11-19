@@ -146,7 +146,8 @@ void DuckDBTriggersFunction(ClientContext &context, TableFunctionInput &data_p, 
 }
 
 void DuckDBTriggersFun::RegisterFunction(BuiltinFunctions &set) {
-	TableFunction fn("duckdb_triggers", {}, DuckDBTriggersFunction, DuckDBTriggersBind, DuckDBTriggersInit);
+	TableFunction fn(set.SystemObjectName("triggers"), {}, DuckDBTriggersFunction, DuckDBTriggersBind,
+	                 DuckDBTriggersInit);
 	fn.pushdown_complex_filter = DuckDBSystemIncludeHiddenBindData::PushdownDatabaseFilters;
 	set.AddFunction(fn);
 }

@@ -637,9 +637,9 @@ void TemporaryFileManager::SetMaxSwapSpace(optional_idx limit) {
 		throw OutOfMemoryException(
 		    R"(failed to adjust the 'max_temp_directory_size', currently used space (%s) exceeds the new limit (%s)
 Please increase the limit or destroy the buffers stored in the temp directory by e.g removing temporary tables.
-To get usage information of the temp_directory, use 'CALL duckdb_temporary_files();'
+To get usage information of the temp_directory, use 'CALL %s();'
 		)",
-		    used, max);
+		    used, max, DBConfig::GetConfig(db).SystemObjectName("temporary_files"));
 	}
 	max_swap_space = new_limit;
 }

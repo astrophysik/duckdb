@@ -79,11 +79,6 @@ static const DefaultMacro internal_macros[] = {
                                                                                 // have privilege for tablespace
 
     // various postgres system functions
-    {"pg_catalog", "pg_get_viewdef", "(oid) AS (select sql from duckdb_views() v where v.view_oid=oid)"},
-    {"pg_catalog", "pg_get_constraintdef",
-     "(constraint_oid) AS (select constraint_text from duckdb_constraints() d_constraint where "
-     "d_constraint.table_oid=constraint_oid//1000000 and d_constraint.constraint_index=constraint_oid%1000000), "
-     "(constraint_oid, pretty_bool) AS pg_get_constraintdef(constraint_oid)"},
     {"pg_catalog", "pg_get_expr", "(pg_node_tree, relation_oid) AS pg_node_tree"},
     {"pg_catalog", "format_pg_type",
      "(logical_type, type_name) AS case upper(logical_type) when 'FLOAT' then 'float4' when 'DOUBLE' then 'float8' "
@@ -91,10 +86,6 @@ static const DefaultMacro internal_macros[] = {
      "'bytea' when 'TIMESTAMP' then 'timestamp' when 'TIME' then 'time' when 'TIMESTAMP WITH TIME ZONE' then "
      "'timestamptz' when 'TIME WITH TIME ZONE' then 'timetz' when 'SMALLINT' then 'int2' when 'INTEGER' then 'int4' "
      "when 'BIGINT' then 'int8' when 'BOOLEAN' then 'bool' else lower(logical_type) end"},
-    {"pg_catalog", "format_type",
-     "(type_oid, typemod) AS (select format_pg_type(logical_type, type_name) from duckdb_types() t where "
-     "t.type_oid=format_type.type_oid) || case when typemod>0 then concat('(', typemod//1000, ',', typemod%1000, "
-     "')') else '' end"},
     {"pg_catalog", "map_to_pg_oid",
      "(type_name) AS case type_name when 'bool' then 16 when 'int16' then 21 when 'int' then 23 when 'bigint' then 20 "
      "when 'date' then 1082 when 'time' then 1083 when 'datetime' then 1114 when 'dec' then 1700 when 'float' then 700 "
@@ -229,6 +220,30 @@ static const DefaultMacro internal_macros[] = {
 
     {nullptr, nullptr, nullptr}};
 
+struct DefaultSystemMacro {
+	DefaultMacro macro;
+	const char *references[2];
+};
+
+static const DefaultSystemMacro system_macros[] = {
+    {{"pg_catalog", "pg_get_viewdef", "(oid) AS (select sql from %s() v where v.view_oid=oid)"}, {"views"}},
+    {{"pg_catalog", "pg_get_constraintdef",
+      "(constraint_oid) AS (select constraint_text from %s() d_constraint where "
+      "d_constraint.table_oid=constraint_oid//1000000 and d_constraint.constraint_index=constraint_oid%%1000000), "
+      "(constraint_oid, pretty_bool) AS pg_get_constraintdef(constraint_oid)"},
+     {"constraints"}},
+    {{"pg_catalog", "format_type",
+      "(type_oid, typemod) AS (select format_pg_type(logical_type, type_name) from %s() t where "
+      "t.type_oid=format_type.type_oid) || case when typemod>0 then concat('(', typemod//1000, ',', typemod%%1000, "
+      "')') else '' end"},
+     {"types"}},
+    {{nullptr, nullptr, nullptr}, {}}};
+
+struct DefaultMacroEntry {
+	const DefaultMacro *macro;
+	const char *const *references;
+};
+
 static void MarkBuiltinCalls(ParsedExpression &expr) {
 	if (expr.GetExpressionClass() == ExpressionClass::FUNCTION) {
 		auto &function = expr.Cast<FunctionExpression>();
@@ -274,14 +289,20 @@ unique_ptr<CreateMacroInfo> DefaultFunctionGenerator::CreateInternalMacroInfo(co
 	return bind_info;
 }
 
-static unique_ptr<CreateFunctionInfo> GetDefaultFunction(const Identifier &input_schema, const Identifier &input_name) {
+unique_ptr<CreateFunctionInfo> DefaultFunctionGenerator::GetDefaultFunction(const Identifier &input_schema,
+                                                                           const Identifier &input_name) const {
 	// (schema, name) -> macro, built once over the static macro literals: no per-call linear scan.
 	using key_t = std::pair<std::string_view, std::string_view>;
-	static const absl::flat_hash_map<key_t, const DefaultMacro *, CaseInsensitivePairHash, CaseInsensitivePairEquality>
+	static const absl::flat_hash_map<key_t, DefaultMacroEntry, CaseInsensitivePairHash, CaseInsensitivePairEquality>
 	    macro_index = [] {
-		    absl::flat_hash_map<key_t, const DefaultMacro *, CaseInsensitivePairHash, CaseInsensitivePairEquality> m;
+		    absl::flat_hash_map<key_t, DefaultMacroEntry, CaseInsensitivePairHash, CaseInsensitivePairEquality> m;
 		    for (idx_t index = 0; internal_macros[index].name != nullptr; index++) {
-			    m.emplace(key_t(internal_macros[index].schema, internal_macros[index].name), &internal_macros[index]);
+			    auto &macro = internal_macros[index];
+			    m.emplace(key_t(macro.schema, macro.name), DefaultMacroEntry {&macro, nullptr});
+		    }
+		    for (idx_t index = 0; system_macros[index].macro.name != nullptr; index++) {
+			    auto &macro = system_macros[index].macro;
+			    m.emplace(key_t(macro.schema, macro.name), DefaultMacroEntry {&macro, system_macros[index].references});
 		    }
 		    return m;
 	    }();
@@ -289,7 +310,14 @@ static unique_ptr<CreateFunctionInfo> GetDefaultFunction(const Identifier &input
 	if (it == macro_index.end()) {
 		return nullptr;
 	}
-	return DefaultFunctionGenerator::CreateInternalMacroInfo(*it->second);
+	auto &entry = it->second;
+	if (!entry.references) {
+		return CreateInternalMacroInfo(*entry.macro);
+	}
+	auto definition = SystemObjectSQL(entry.macro->macro_definition, entry.references);
+	auto macro = *entry.macro;
+	macro.macro_definition = definition.c_str();
+	return CreateInternalMacroInfo(macro);
 }
 
 DefaultFunctionGenerator::DefaultFunctionGenerator(Catalog &catalog, SchemaCatalogEntry &schema)
@@ -310,13 +338,19 @@ unique_ptr<CatalogEntry> DefaultFunctionGenerator::CreateDefaultEntry(ClientCont
 
 vector<Identifier> DefaultFunctionGenerator::GetDefaultEntries() {
 	vector<Identifier> result;
+	auto add_entry = [&](const DefaultMacro &macro) {
+		if (StringUtil::Lower(macro.name) != macro.name) {
+			throw InternalException("Default macro name %s should be lowercase", macro.name);
+		}
+		if (ServesDefaults(schema.name, macro.schema)) {
+			result.emplace_back(macro.name);
+		}
+	};
 	for (idx_t index = 0; internal_macros[index].name != nullptr; index++) {
-		if (StringUtil::Lower(internal_macros[index].name) != internal_macros[index].name) {
-			throw InternalException("Default macro name %s should be lowercase", internal_macros[index].name);
-		}
-		if (ServesDefaults(schema.name, internal_macros[index].schema)) {
-			result.emplace_back(internal_macros[index].name);
-		}
+		add_entry(internal_macros[index]);
+	}
+	for (idx_t index = 0; system_macros[index].macro.name != nullptr; index++) {
+		add_entry(system_macros[index].macro);
 	}
 	return result;
 }

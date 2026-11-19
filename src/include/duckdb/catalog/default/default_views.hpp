@@ -13,6 +13,7 @@
 
 namespace duckdb {
 class SchemaCatalogEntry;
+struct DefaultViewNames;
 
 class DefaultViewGenerator : public DefaultGenerator {
 public:
@@ -26,6 +27,9 @@ public:
 
 private:
 	bool ServesViewsOf(const Identifier &view_schema) const;
+	unique_ptr<CreateViewInfo> GetDefaultView(const Identifier &input_schema, const Identifier &input_name) const;
+
+	const DefaultViewNames &view_names;
 };
 
 } // namespace duckdb

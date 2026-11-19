@@ -56,7 +56,7 @@ void DuckDBKeywordsFunction(ClientContext &context, TableFunctionInput &data_p, 
 }
 
 void DuckDBKeywordsFun::RegisterFunction(BuiltinFunctions &set) {
-	TableFunction duckdb_keywords("duckdb_keywords", {}, DuckDBKeywordsFunction, DuckDBKeywordsBind,
+	TableFunction duckdb_keywords(set.SystemObjectName("keywords"), {}, DuckDBKeywordsFunction, DuckDBKeywordsBind,
 	                              DuckDBKeywordsInit);
 	set.AddFunction(duckdb_keywords);
 }

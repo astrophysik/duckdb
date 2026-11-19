@@ -79,8 +79,8 @@ void DuckDBVariablesFunction(ClientContext &context, TableFunctionInput &data_p,
 }
 
 void DuckDBVariablesFun::RegisterFunction(BuiltinFunctions &set) {
-	set.AddFunction(
-	    TableFunction("duckdb_variables", {}, DuckDBVariablesFunction, DuckDBVariablesBind, DuckDBVariablesInit));
+	set.AddFunction(TableFunction(set.SystemObjectName("variables"), {}, DuckDBVariablesFunction, DuckDBVariablesBind,
+	                              DuckDBVariablesInit));
 }
 
 } // namespace duckdb

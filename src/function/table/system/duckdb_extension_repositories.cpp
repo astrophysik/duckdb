@@ -95,8 +95,9 @@ void DuckDBExtensionRepositoriesFunction(ClientContext &context, TableFunctionIn
 }
 
 void DuckDBExtensionRepositoriesFun::RegisterFunction(BuiltinFunctions &set) {
-	set.AddFunction(TableFunction("duckdb_extension_repositories", {}, DuckDBExtensionRepositoriesFunction,
-	                              DuckDBExtensionRepositoriesBind, DuckDBExtensionRepositoriesInit));
+	set.AddFunction(TableFunction(set.SystemObjectName("extension_repositories"), {},
+	                              DuckDBExtensionRepositoriesFunction, DuckDBExtensionRepositoriesBind,
+	                              DuckDBExtensionRepositoriesInit));
 }
 
 } // namespace duckdb

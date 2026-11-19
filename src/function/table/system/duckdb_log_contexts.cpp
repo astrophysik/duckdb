@@ -69,8 +69,8 @@ static unique_ptr<TableRef> DuckDBLogContextsBindReplace(ClientContext &context,
 }
 
 void DuckDBLogContextFun::RegisterFunction(BuiltinFunctions &set) {
-	auto fun =
-	    TableFunction("duckdb_log_contexts", {}, DuckDBLogContextFunction, DuckDBLogContextBind, DuckDBLogContextInit);
+	auto fun = TableFunction(set.SystemObjectName("log_contexts"), {}, DuckDBLogContextFunction, DuckDBLogContextBind,
+	                         DuckDBLogContextInit);
 	fun.bind_replace = DuckDBLogContextsBindReplace;
 	set.AddFunction(fun);
 }
