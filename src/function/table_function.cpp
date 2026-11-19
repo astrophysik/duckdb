@@ -125,6 +125,8 @@ BoundTableFunction::BoundTableFunction(shared_ptr<const TableFunction> function_
 	filter_prune = function.filter_prune;
 	sampling_pushdown = function.sampling_pushdown;
 	late_materialization = function.late_materialization;
+	multi_column_filter_pushdown = function.multi_column_filter_pushdown;
+	ordered_filter_pushdown = function.ordered_filter_pushdown;
 	function_info = function.function_info;
 	BaseTableFunction::return_type = function.return_type;
 	call_return_type = function.call_return_type;

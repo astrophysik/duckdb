@@ -1419,6 +1419,8 @@ TableFunction TableScanFunction::GetFunction() {
 	scan_function.filter_prune = true;
 	scan_function.sampling_pushdown = true;
 	scan_function.late_materialization = true;
+	scan_function.multi_column_filter_pushdown = true;
+	scan_function.ordered_filter_pushdown = true;
 	scan_function.serialize = TableScanSerialize;
 	scan_function.deserialize = TableScanDeserialize;
 	scan_function.pushdown_expression = TableScanPushdownExpression;

@@ -48,10 +48,9 @@ void FilterPushdown::PushdownBarrierFilters(LogicalGet &get, vector<unique_ptr<F
 		// have to stay on top as well, so that they are evaluated after it
 		return;
 	}
-	// only push into a table scan we control the filter order of - external scans may evaluate a pushed-down
-	// expression against values (e.g. partition constants) that no surviving row ever has
-	auto table = get.GetTable();
-	if (!table || !table->IsDuckTable()) {
+	// only push into a scan that keeps the filter order - external scans may evaluate a pushed-down expression against
+	// values (e.g. partition constants) that no surviving row ever has
+	if (!get.function.ordered_filter_pushdown) {
 		return;
 	}
 	for (idx_t i = 0; i < barrier_filters.size(); i++) {
