@@ -5,6 +5,7 @@
 #include "duckdb/common/extension_type_info.hpp"
 #include "duckdb/common/limits.hpp"
 #include "duckdb/main/attached_database.hpp"
+#include "duckdb/main/database_manager.hpp"
 #include "duckdb/parser/keyword_helper.hpp"
 #include <algorithm>
 #include <sstream>
@@ -22,7 +23,11 @@ static idx_t TypeOid(Catalog &catalog, const CreateTypeInfo &info) {
 
 TypeCatalogEntry::TypeCatalogEntry(Catalog &catalog, SchemaCatalogEntry &schema, CreateTypeInfo &info)
     : StandardEntry(CatalogType::TYPE_ENTRY, schema, catalog, info.GetTypeName(), TypeOid(catalog, info)),
-      user_type(info.type), constructors(info.constructors) {
+      // TODO: maybe info.type is enough here
+      user_type(info.domain_info && info.domain_info->base_type.id() != LogicalTypeId::INVALID
+                    ? info.domain_info->base_type
+                    : info.type),
+      constructors(info.constructors), domain_info(info.domain_info ? info.domain_info->Copy() : nullptr) {
 	if (constructors.functions.empty()) {
 		// a type without constructors takes no modifiers and always resolves to its own type
 		constructors.AddFunction(TypeConstructor::Identity(name));
@@ -47,7 +52,19 @@ TypeCatalogEntry::TypeCatalogEntry(Catalog &catalog, SchemaCatalogEntry &schema,
 	if (postgres && !internal) {
 		auto extension_info = user_type.HasExtensionInfo() ? make_uniq<ExtensionTypeInfo>(*user_type.GetExtensionInfo())
 		                                                   : make_uniq<ExtensionTypeInfo>();
-		extension_info->properties[ExtensionTypeInfo::CATALOG_OID_PROPERTY] = Value::UBIGINT(oid);
+		auto &properties = extension_info->properties;
+		if (domain_info) {
+			auto base_oid = properties.find(ExtensionTypeInfo::CATALOG_OID_PROPERTY);
+			if (!properties.contains(ExtensionTypeInfo::DOMAIN_PROPERTY) && base_oid != properties.end()) {
+				properties[ExtensionTypeInfo::BASE_OID_PROPERTY] = base_oid->second;
+			}
+			properties[ExtensionTypeInfo::DOMAIN_PROPERTY] = Value::BOOLEAN(true);
+		} else {
+			// TODO: think about aliasing CREATE TYPE x AS d
+			properties.erase(ExtensionTypeInfo::DOMAIN_PROPERTY);
+			properties.erase(ExtensionTypeInfo::BASE_OID_PROPERTY);
+		}
+		properties[ExtensionTypeInfo::CATALOG_OID_PROPERTY] = Value::UBIGINT(oid);
 		user_type = user_type.WithExtensionInfo(std::move(extension_info));
 	}
 }
@@ -70,6 +87,7 @@ unique_ptr<CreateInfo> TypeCatalogEntry::GetInfo() const {
 	result->tags = tags;
 	result->permissions = permissions;
 	result->constructors = constructors;
+	result->domain_info = domain_info ? domain_info->Copy() : nullptr;
 	return std::move(result);
 }
 
@@ -86,6 +104,36 @@ string TypeCatalogEntry::ToSQL() const {
 	ss << user_type_copy.ToString();
 	ss << ";";
 	return ss.str();
+}
+
+static optional_ptr<TypeCatalogEntry> FindDomain(ClientContext &context, Catalog &catalog, idx_t oid) {
+	auto entry = catalog.LookupOid(catalog.GetCatalogTransaction(context), oid);
+	if (!entry || entry->type != CatalogType::TYPE_ENTRY) {
+		return nullptr;
+	}
+	auto &type_entry = entry->Cast<TypeCatalogEntry>();
+	if (!type_entry.domain_info) {
+		return nullptr;
+	}
+	return type_entry;
+}
+
+optional_ptr<TypeCatalogEntry> TypeCatalogEntry::TryGetDomain(ClientContext &context, const LogicalType &type) {
+	auto extension = type.GetExtensionInfo();
+	if (!ExtensionTypeInfo::IsDomain(extension)) {
+		return nullptr;
+	}
+	auto oid_it = extension->properties.find(ExtensionTypeInfo::CATALOG_OID_PROPERTY);
+	if (oid_it == extension->properties.end()) {
+		return nullptr;
+	}
+	auto oid = oid_it->second.GetValue<idx_t>();
+
+	auto current = DatabaseManager::Get(context).GetDatabase(context, DatabaseManager::TryGetDefaultDatabase(context));
+	if (!current) {
+		return nullptr;
+	}
+	return FindDomain(context, current->GetCatalog(), oid);
 }
 
 } // namespace duckdb
