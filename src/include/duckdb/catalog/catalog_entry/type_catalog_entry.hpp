@@ -36,6 +36,10 @@ public:
 	unique_ptr<DomainInfo> domain_info;
 
 public:
+	using CatalogEntry::AlterEntry;
+
+	unique_ptr<CatalogEntry> AlterEntry(ClientContext &context, AlterInfo &info) override;
+
 	unique_ptr<CreateInfo> GetInfo() const override;
 	unique_ptr<CatalogEntry> Copy(ClientContext &context) const override;
 

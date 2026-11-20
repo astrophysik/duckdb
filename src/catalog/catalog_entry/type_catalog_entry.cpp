@@ -7,6 +7,7 @@
 #include "duckdb/main/attached_database.hpp"
 #include "duckdb/main/database_manager.hpp"
 #include "duckdb/parser/keyword_helper.hpp"
+#include "duckdb/parser/parsed_data/alter_domain_info.hpp"
 #include <algorithm>
 #include <sstream>
 
@@ -75,6 +76,110 @@ unique_ptr<CatalogEntry> TypeCatalogEntry::Copy(ClientContext &context) const {
 	cast_info.oid = oid;
 	auto result = make_uniq<TypeCatalogEntry>(catalog, ParentSchema(context), cast_info);
 	return std::move(result);
+}
+
+static auto HasConstraintName(const string &constraint_name) {
+	return [&constraint_name](const DomainConstraint &constraint) {
+		return constraint.name == constraint_name;
+	};
+}
+
+static string ChooseConstraintName(const string &domain_name, const vector<DomainConstraint> &constraints,
+                                   ConstraintType type) {
+	auto base = domain_name + "_" + (type == ConstraintType::CHECK ? "check" : "not_null");
+	auto candidate = base;
+	for (idx_t i = 1; std::any_of(constraints.begin(), constraints.end(), HasConstraintName(candidate)); i++) {
+		candidate = base + to_string(i);
+	}
+	return candidate;
+}
+
+unique_ptr<CatalogEntry> TypeCatalogEntry::AlterEntry(ClientContext &context, AlterInfo &info) {
+	if (info.type != AlterType::ALTER_DOMAIN) {
+		return CatalogEntry::AlterEntry(context, info);
+	}
+	D_ASSERT(domain_info);
+
+	auto &alter = info.Cast<AlterDomainInfo>();
+	if (alter.alter_domain_type == AlterDomainType::RENAME) {
+		return CatalogEntry::AlterEntry(context, info);
+	}
+	auto result = Copy(context);
+	auto &result_domain_info = result->Cast<TypeCatalogEntry>().domain_info;
+	switch (alter.alter_domain_type) {
+	case AlterDomainType::SET_DEFAULT:
+		result_domain_info->default_value = alter.default_value->Copy();
+		break;
+	case AlterDomainType::DROP_DEFAULT:
+		result_domain_info->default_value.reset();
+		break;
+	case AlterDomainType::SET_NOT_NULL: {
+		auto &constraints = result_domain_info->constraints;
+		if (std::any_of(constraints.begin(), constraints.end(), [](const DomainConstraint &constraint) {
+			    return constraint.type == ConstraintType::NOT_NULL;
+		    })) {
+			break;
+		}
+		alter.constraint.type = ConstraintType::NOT_NULL;
+		if (alter.constraint.name.empty()) {
+			alter.constraint.name =
+			    ChooseConstraintName(name.GetIdentifierName(), constraints, ConstraintType::NOT_NULL);
+		}
+		constraints.push_back(alter.constraint.Copy());
+		break;
+	}
+	case AlterDomainType::DROP_NOT_NULL:
+		std::erase_if(result_domain_info->constraints,
+		              [](const DomainConstraint &constraint) { return constraint.type == ConstraintType::NOT_NULL; });
+		break;
+	case AlterDomainType::ADD_CONSTRAINT: {
+		auto &constraints = result_domain_info->constraints;
+		if (alter.constraint.name.empty()) {
+			alter.constraint.name = ChooseConstraintName(name.GetIdentifierName(), constraints, alter.constraint.type);
+		} else if (std::any_of(constraints.begin(), constraints.end(), HasConstraintName(alter.constraint.name))) {
+			throw CatalogException("constraint \"%s\" for domain \"%s\" already exists", alter.constraint.name,
+			                       name.GetIdentifierName());
+		}
+		constraints.push_back(alter.constraint.Copy());
+		break;
+	}
+	case AlterDomainType::DROP_CONSTRAINT: {
+		auto &constraints = result_domain_info->constraints;
+		auto removed = std::erase_if(constraints, HasConstraintName(alter.constraint_name));
+		if (removed == 0 && !alter.constraint_if_exists) {
+			throw CatalogException("constraint \"%s\" of domain \"%s\" does not exist", alter.constraint_name,
+			                       name.GetIdentifierName());
+		}
+		break;
+	}
+	case AlterDomainType::RENAME_CONSTRAINT: {
+		auto &constraints = result_domain_info->constraints;
+		auto it = std::find_if(constraints.begin(), constraints.end(), HasConstraintName(alter.constraint_name));
+		if (it == constraints.end()) {
+			throw CatalogException("constraint \"%s\" of domain \"%s\" does not exist", alter.constraint_name,
+			                       name.GetIdentifierName());
+		}
+		if (std::any_of(constraints.begin(), constraints.end(), HasConstraintName(alter.new_constraint_name))) {
+			throw CatalogException("constraint \"%s\" for domain \"%s\" already exists", alter.new_constraint_name,
+			                       name.GetIdentifierName());
+		}
+		it->name = alter.new_constraint_name;
+		break;
+	}
+	case AlterDomainType::VALIDATE_CONSTRAINT: {
+		auto &constraints = result_domain_info->constraints;
+		auto it = std::find_if(constraints.begin(), constraints.end(), HasConstraintName(alter.constraint_name));
+		if (it == constraints.end()) {
+			throw CatalogException("constraint \"%s\" of domain \"%s\" does not exist", alter.constraint_name,
+			                       name.GetIdentifierName());
+		}
+		it->validated = true;
+		break;
+	}
+	case AlterDomainType::RENAME:
+		D_ASSERT(false); // already processed before switch
+	}
+	return result;
 }
 
 unique_ptr<CreateInfo> TypeCatalogEntry::GetInfo() const {
