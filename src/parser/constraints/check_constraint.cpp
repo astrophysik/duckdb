@@ -14,6 +14,7 @@ unique_ptr<Constraint> CheckConstraint::Copy() const {
 	auto copy = make_uniq<CheckConstraint>(expression->Copy());
 	copy->constraint_name = constraint_name;
 	copy->oid = oid;
+	copy->validated = validated;
 	return copy;
 }
 

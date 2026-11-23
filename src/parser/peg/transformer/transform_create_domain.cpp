@@ -1,25 +1,22 @@
 #include "duckdb/parser/peg/transformer/peg_transformer.hpp"
 #include "duckdb/parser/parsed_data/create_type_info.hpp"
 #include "duckdb/parser/constraints/check_constraint.hpp"
+#include "duckdb/parser/constraints/not_null_constraint.hpp"
 #include "duckdb/parser/parsed_data/alter_domain_info.hpp"
 #include "duckdb/parser/expression/constant_expression.hpp"
 
 namespace duckdb {
 
-static DomainConstraint DomainConstraintFromEntry(ColumnConstraintEntry &entry) {
-	DomainConstraint constraint;
+static unique_ptr<Constraint> ConstraintFromEntry(ColumnConstraintEntry &entry) {
 	if (entry.constraint_name == "NotNullConstraint") {
-		constraint.name = entry.constraint_type_info.name;
-		constraint.type = ConstraintType::NOT_NULL;
+		auto constraint = make_uniq<NotNullConstraint>(LogicalIndex(0));
+		constraint->constraint_name = std::move(entry.constraint_type_info.name);
+		return constraint;
 	} else if (entry.constraint_name == "CheckConstraint") {
-		auto &check = entry.constraint->Cast<CheckConstraint>();
-		constraint.name = check.constraint_name;
-		constraint.type = ConstraintType::CHECK;
-		constraint.expression = std::move(check.expression);
+		return std::move(entry.constraint);
 	} else {
 		throw InternalException("unexpected domain constraint %s", entry.constraint_name);
 	}
-	return constraint;
 }
 
 unique_ptr<CreateStatement>
@@ -53,9 +50,9 @@ PEGTransformerFactory::TransformCreateDomainStmt(PEGTransformer &transformer, co
 					has_explicit_null = true;
 					continue;
 				}
-				domain.constraints.push_back(DomainConstraintFromEntry(entry));
+				domain.constraints.push_back(ConstraintFromEntry(entry));
 			} else if (entry.constraint_name == "CheckConstraint") {
-				domain.constraints.push_back(DomainConstraintFromEntry(entry));
+				domain.constraints.push_back(ConstraintFromEntry(entry));
 			} else {
 				throw InternalException("unexpected domain clause");
 			}
@@ -78,8 +75,8 @@ unique_ptr<AlterInfo> PEGTransformerFactory::TransformAddDomainConstraint(PEGTra
 		throw ParserException("a domain constraint must be NOT NULL or CHECK");
 	}
 	auto result = make_uniq<AlterDomainInfo>(AlterDomainType::ADD_CONSTRAINT, AlterEntryData());
-	result->constraint = DomainConstraintFromEntry(domain_constraint);
-	result->constraint.validated = !(not_valid && *not_valid);
+	result->constraint = ConstraintFromEntry(domain_constraint);
+	result->constraint->validated = !(not_valid && *not_valid);
 	return std::move(result);
 }
 

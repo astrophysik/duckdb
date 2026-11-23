@@ -366,51 +366,13 @@
       {
         "id": 102,
         "name": "constraints",
-        "type": "vector<DomainConstraint>"
+        "type": "vector<unique_ptr<Constraint>>"
       },
       {
         "id": 103,
         "name": "base_type",
         "type": "LogicalType",
         "default": "LogicalType::INVALID"
-      }
-    ]
-  },
-  {
-    "class": "DomainConstraint",
-    "pointer_type": "none",
-    "includes": [
-      "duckdb/parser/parsed_data/domain_info.hpp"
-    ],
-    "members": [
-      {
-        "id": 100,
-        "name": "name",
-        "type": "string"
-      },
-      {
-        "id": 101,
-        "name": "type",
-        "type": "ConstraintType",
-        "default": "ConstraintType::INVALID"
-      },
-      {
-        "id": 102,
-        "name": "expression",
-        "type": "unique_ptr<ParsedExpression>",
-        "default": "nullptr"
-      },
-      {
-        "id": 103,
-        "name": "validated",
-        "type": "bool",
-        "default": "true"
-      },
-      {
-        "id": 104,
-        "name": "oid",
-        "type": "idx_t",
-        "default": "0"
       }
     ]
   },

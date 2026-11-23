@@ -4,22 +4,6 @@
 #include "duckdb/parser/parsed_expression.hpp"
 
 namespace duckdb {
-//! A NOT NULL or CHECK constraint of a domain
-struct DomainConstraint {
-	//! The constraint name, given or generated (<domain>_check, <domain>_not_null)
-	string name;
-	//! NOT_NULL or CHECK
-	ConstraintType type = ConstraintType::INVALID;
-	//! The CHECK expression over VALUE; empty for NOT NULL
-	unique_ptr<ParsedExpression> expression;
-	//! False after ADD ... NOT VALID until VALIDATE CONSTRAINT
-	bool validated = true;
-	idx_t oid = 0;
-
-	DomainConstraint Copy() const;
-	void Serialize(Serializer &serializer) const;
-	static DomainConstraint Deserialize(Deserializer &deserializer);
-};
 
 //! What CREATE DOMAIN adds to a type over its base type
 struct DomainInfo {
@@ -28,7 +12,7 @@ struct DomainInfo {
 	//! COLLATE name, empty if none
 	string collation;
 	//! NOT NULL and CHECK constraints in declaration order
-	vector<DomainConstraint> constraints;
+	vector<unique_ptr<Constraint>> constraints;
 	LogicalType base_type;
 
 	//! Whether a NOT NULL constraint is present (pg_type.typnotnull)

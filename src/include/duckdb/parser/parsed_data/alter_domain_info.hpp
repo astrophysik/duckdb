@@ -36,7 +36,7 @@ struct AlterDomainInfo : public AlterInfo {
 	//! SET DEFAULT: the new default expression
 	unique_ptr<ParsedExpression> default_value;
 	//! ADD CONSTRAINT: the constraint to add; validated is false for NOT VALID
-	DomainConstraint constraint;
+	unique_ptr<Constraint> constraint;
 	//! DROP / RENAME / VALIDATE CONSTRAINT: the constraint the action applies to
 	string constraint_name;
 	//! RENAME CONSTRAINT: the new constraint name

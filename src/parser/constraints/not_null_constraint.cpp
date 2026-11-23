@@ -18,6 +18,7 @@ unique_ptr<Constraint> NotNullConstraint::Copy() const {
 	auto result = make_uniq<NotNullConstraint>(index);
 	result->constraint_name = constraint_name;
 	result->oid = oid;
+	result->validated = validated;
 	return std::move(result);
 }
 

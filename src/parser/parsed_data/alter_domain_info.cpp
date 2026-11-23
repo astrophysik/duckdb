@@ -1,13 +1,14 @@
 #include "duckdb/parser/parsed_data/alter_domain_info.hpp"
 
 #include "duckdb/common/sql_identifier.hpp"
+#include "duckdb/parser/constraints/check_constraint.hpp"
 
 namespace duckdb {
 
 unique_ptr<AlterInfo> AlterDomainInfo::Copy() const {
 	auto result = make_uniq<AlterDomainInfo>(alter_domain_type, GetAlterEntryData());
 	result->default_value = default_value ? default_value->Copy() : nullptr;
-	result->constraint = constraint.Copy();
+	result->constraint = constraint ? constraint->Copy() : nullptr;
 	result->constraint_name = constraint_name;
 	result->new_constraint_name = new_constraint_name;
 	result->constraint_if_exists = constraint_if_exists;
@@ -33,15 +34,15 @@ string AlterDomainInfo::ToString() const {
 		break;
 	case AlterDomainType::ADD_CONSTRAINT:
 		result += " ADD";
-		if (!constraint.name.empty()) {
-			result += " CONSTRAINT " + SQLIdentifier(constraint.name);
+		if (!constraint->constraint_name.empty()) {
+			result += " CONSTRAINT " + SQLIdentifier(constraint->constraint_name);
 		}
-		if (constraint.type == ConstraintType::NOT_NULL) {
+		if (constraint->type == ConstraintType::NOT_NULL) {
 			result += " NOT NULL";
 		} else {
-			result += " CHECK (" + constraint.expression->ToString() + ")";
+			result += " " + constraint->Cast<CheckConstraint>().ToString();
 		}
-		if (!constraint.validated) {
+		if (!constraint->validated) {
 			result += " NOT VALID";
 		}
 		break;

@@ -1353,19 +1353,21 @@ BoundStatement Binder::Bind(CreateStatement &stmt) {
 
 					unordered_set<string> constraint_names;
 					for (auto &constraint : domain_info.constraints) {
-						if (!constraint.name.empty() && !constraint_names.insert(constraint.name).second) {
-							throw BinderException("constraint \"%s\" for domain \"%s\" already exists", constraint.name,
+						if (!constraint->constraint_name.empty() &&
+						    !constraint_names.insert(constraint->constraint_name).second) {
+							throw BinderException("constraint \"%s\" for domain \"%s\" already exists",
+							                      constraint->constraint_name,
 							                      create_type_info.GetTypeName().GetIdentifierName());
 						}
 					}
 
 					check_binder.target_type = LogicalType();
 					for (auto &constraint : domain_info.constraints) {
-						if (constraint.type != ConstraintType::CHECK) {
-							D_ASSERT(constraint.type == ConstraintType::NOT_NULL);
+						if (constraint->type != ConstraintType::CHECK) {
+							D_ASSERT(constraint->type == ConstraintType::NOT_NULL);
 							continue;
 						}
-						auto constraint_copy = constraint.expression->Copy();
+						auto constraint_copy = constraint->Cast<CheckConstraint>().expression->Copy();
 						if (constraint_copy->HasParameter()) {
 							throw BinderException("CHECK expression cannot contain parameters");
 						}
@@ -1386,9 +1388,9 @@ BoundStatement Binder::Bind(CreateStatement &stmt) {
 						return candidate;
 					};
 					for (auto &constraint : domain_info.constraints) {
-						if (constraint.name.empty()) {
-							constraint.name =
-							    choose_name(constraint.type == ConstraintType::CHECK ? "check" : "not_null");
+						if (constraint->constraint_name.empty()) {
+							constraint->constraint_name =
+							    choose_name(constraint->type == ConstraintType::CHECK ? "check" : "not_null");
 						}
 					}
 				}

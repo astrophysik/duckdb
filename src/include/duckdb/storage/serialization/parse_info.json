@@ -1614,7 +1614,8 @@
       {
         "id": 302,
         "name": "constraint",
-        "type": "DomainConstraint"
+        "type": "unique_ptr<Constraint>",
+        "default": "nullptr"
       },
       {
         "id": 303,

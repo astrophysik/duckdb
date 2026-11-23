@@ -2,19 +2,9 @@
 
 namespace duckdb {
 
-DomainConstraint DomainConstraint::Copy() const {
-	DomainConstraint copy;
-	copy.name = name;
-	copy.type = type;
-	copy.expression = expression ? expression->Copy() : nullptr;
-	copy.validated = validated;
-	copy.oid = oid;
-	return copy;
-}
-
 bool DomainInfo::IsNotNull() const {
 	for (auto &constraint : constraints) {
-		if (constraint.type == ConstraintType::NOT_NULL) {
+		if (constraint->type == ConstraintType::NOT_NULL) {
 			return true;
 		}
 	}
@@ -27,7 +17,7 @@ unique_ptr<DomainInfo> DomainInfo::Copy() const {
 	result->collation = collation;
 	result->base_type = base_type;
 	for (auto &constraint : constraints) {
-		result->constraints.push_back(constraint.Copy());
+		result->constraints.push_back(constraint->Copy());
 	}
 	return result;
 }

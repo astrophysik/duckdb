@@ -333,7 +333,7 @@ BoundStatement Binder::Bind(AlterStatement &stmt) {
 			throw BinderException("\"%s\" is not a domain", type_entry.name.GetIdentifierName());
 		}
 		auto &alter = stmt.info->Cast<AlterDomainInfo>();
-		if (alter.alter_domain_type == AlterDomainType::ADD_CONSTRAINT && alter.constraint.validated) {
+		if (alter.alter_domain_type == AlterDomainType::ADD_CONSTRAINT && alter.constraint->validated) {
 			throw NotImplementedException("ALTER DOMAIN ... ADD CONSTRAINT without NOT VALID is not supported");
 		}
 		if (alter.alter_domain_type == AlterDomainType::SET_NOT_NULL) {
@@ -357,8 +357,8 @@ BoundStatement Binder::Bind(AlterStatement &stmt) {
 				ExpressionExecutor::EvaluateScalar(context, *bound);
 			}
 		} else if (alter.alter_domain_type == AlterDomainType::ADD_CONSTRAINT &&
-		           alter.constraint.type == ConstraintType::CHECK) {
-			auto check_copy = alter.constraint.expression->Copy();
+		           alter.constraint->type == ConstraintType::CHECK) {
+			auto check_copy = alter.constraint->Cast<CheckConstraint>().expression->Copy();
 			if (check_copy->HasParameter()) {
 				throw BinderException("CHECK expression cannot contain parameters");
 			}

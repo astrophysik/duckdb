@@ -8,6 +8,7 @@
 #include "duckdb/main/database_manager.hpp"
 #include "duckdb/parser/keyword_helper.hpp"
 #include "duckdb/parser/parsed_data/alter_domain_info.hpp"
+#include "duckdb/parser/constraints/not_null_constraint.hpp"
 #include "duckdb/main/database.hpp"
 #include <algorithm>
 #include <sstream>
@@ -51,10 +52,10 @@ TypeCatalogEntry::TypeCatalogEntry(Catalog &catalog, SchemaCatalogEntry &schema,
 	if (domain_info) {
 		auto &oids = catalog.GetDatabase().GetDatabaseManager();
 		for (auto &constraint : domain_info->constraints) {
-			if (constraint.oid) {
-				oids.ClaimOid(constraint.oid);
+			if (constraint->oid) {
+				oids.ClaimOid(constraint->oid);
 			} else if (postgres && !internal) {
-				constraint.oid = oids.NextOid();
+				constraint->oid = oids.NextOid();
 			}
 		}
 	}
@@ -90,12 +91,12 @@ unique_ptr<CatalogEntry> TypeCatalogEntry::Copy(ClientContext &context) const {
 }
 
 static auto HasConstraintName(const string &constraint_name) {
-	return [&constraint_name](const DomainConstraint &constraint) {
-		return constraint.name == constraint_name;
+	return [&constraint_name](const unique_ptr<Constraint> &constraint) {
+		return constraint->constraint_name == constraint_name;
 	};
 }
 
-static string ChooseConstraintName(const string &domain_name, const vector<DomainConstraint> &constraints,
+static string ChooseConstraintName(const string &domain_name, const vector<unique_ptr<Constraint>> &constraints,
                                    ConstraintType type) {
 	auto base = domain_name + "_" + (type == ConstraintType::CHECK ? "check" : "not_null");
 	auto candidate = base;
@@ -127,42 +128,44 @@ unique_ptr<CatalogEntry> TypeCatalogEntry::AlterEntry(ClientContext &context, Al
 		break;
 	case AlterDomainType::SET_NOT_NULL: {
 		auto &constraints = result_domain_info->constraints;
-		if (std::any_of(constraints.begin(), constraints.end(), [](const DomainConstraint &constraint) {
-			    return constraint.type == ConstraintType::NOT_NULL;
-		    })) {
+		if (!domain_info->IsNotNull()) {
 			break;
 		}
-		alter.constraint.type = ConstraintType::NOT_NULL;
-		if (alter.constraint.name.empty()) {
-			alter.constraint.name =
+		if (!alter.constraint) {
+			alter.constraint = make_uniq<NotNullConstraint>(LogicalIndex(0));
+		}
+		if (alter.constraint->constraint_name.empty()) {
+			alter.constraint->constraint_name =
 			    ChooseConstraintName(name.GetIdentifierName(), constraints, ConstraintType::NOT_NULL);
 		}
-		if (!alter.constraint.oid) {
-			alter.constraint.oid = oids.NextOid();
+		if (!alter.constraint->oid) {
+			alter.constraint->oid = oids.NextOid();
 		} else {
-			oids.ClaimOid(alter.constraint.oid);
+			oids.ClaimOid(alter.constraint->oid);
 		}
-		constraints.push_back(alter.constraint.Copy());
+		constraints.push_back(alter.constraint->Copy());
 		break;
 	}
 	case AlterDomainType::DROP_NOT_NULL:
-		std::erase_if(result_domain_info->constraints,
-		              [](const DomainConstraint &constraint) { return constraint.type == ConstraintType::NOT_NULL; });
+		std::erase_if(result_domain_info->constraints, [](const unique_ptr<Constraint> &constraint) {
+			return constraint->type == ConstraintType::NOT_NULL;
+		});
 		break;
 	case AlterDomainType::ADD_CONSTRAINT: {
 		auto &constraints = result_domain_info->constraints;
-		if (alter.constraint.name.empty()) {
-			alter.constraint.name = ChooseConstraintName(name.GetIdentifierName(), constraints, alter.constraint.type);
-		} else if (std::any_of(constraints.begin(), constraints.end(), HasConstraintName(alter.constraint.name))) {
-			throw CatalogException("constraint \"%s\" for domain \"%s\" already exists", alter.constraint.name,
+		auto &constraint = *alter.constraint;
+		if (constraint.constraint_name.empty()) {
+			constraint.constraint_name = ChooseConstraintName(name.GetIdentifierName(), constraints, constraint.type);
+		} else if (std::any_of(constraints.begin(), constraints.end(), HasConstraintName(constraint.constraint_name))) {
+			throw CatalogException("constraint \"%s\" for domain \"%s\" already exists", constraint.constraint_name,
 			                       name.GetIdentifierName());
 		}
-		if (!alter.constraint.oid) {
-			alter.constraint.oid = oids.NextOid();
+		if (!constraint.oid) {
+			constraint.oid = oids.NextOid();
 		} else {
-			oids.ClaimOid(alter.constraint.oid);
+			oids.ClaimOid(constraint.oid);
 		}
-		constraints.push_back(alter.constraint.Copy());
+		constraints.push_back(constraint.Copy());
 		break;
 	}
 	case AlterDomainType::DROP_CONSTRAINT: {
@@ -185,7 +188,7 @@ unique_ptr<CatalogEntry> TypeCatalogEntry::AlterEntry(ClientContext &context, Al
 			throw CatalogException("constraint \"%s\" for domain \"%s\" already exists", alter.new_constraint_name,
 			                       name.GetIdentifierName());
 		}
-		it->name = alter.new_constraint_name;
+		(*it)->constraint_name = alter.new_constraint_name;
 		break;
 	}
 	case AlterDomainType::VALIDATE_CONSTRAINT: {
@@ -195,7 +198,7 @@ unique_ptr<CatalogEntry> TypeCatalogEntry::AlterEntry(ClientContext &context, Al
 			throw CatalogException("constraint \"%s\" of domain \"%s\" does not exist", alter.constraint_name,
 			                       name.GetIdentifierName());
 		}
-		it->validated = true;
+		(*it)->validated = true;
 		break;
 	}
 	case AlterDomainType::RENAME:
@@ -244,8 +247,8 @@ vector<idx_t> TypeCatalogEntry::GetSubObjectOids() const {
 	vector<idx_t> constraint_oids;
 	constraint_oids.reserve(constraints.size());
 	for (const auto &constraint : constraints) {
-		if (constraint.oid != 0) {
-			constraint_oids.push_back(constraint.oid);
+		if (constraint->oid != 0) {
+			constraint_oids.push_back(constraint->oid);
 		}
 	}
 	return constraint_oids;
