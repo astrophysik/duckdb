@@ -8,6 +8,7 @@ DomainConstraint DomainConstraint::Copy() const {
 	copy.type = type;
 	copy.expression = expression ? expression->Copy() : nullptr;
 	copy.validated = validated;
+	copy.oid = oid;
 	return copy;
 }
 

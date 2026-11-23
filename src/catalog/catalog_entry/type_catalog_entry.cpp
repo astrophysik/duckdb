@@ -8,6 +8,7 @@
 #include "duckdb/main/database_manager.hpp"
 #include "duckdb/parser/keyword_helper.hpp"
 #include "duckdb/parser/parsed_data/alter_domain_info.hpp"
+#include "duckdb/main/database.hpp"
 #include <algorithm>
 #include <sstream>
 
@@ -47,6 +48,16 @@ TypeCatalogEntry::TypeCatalogEntry(Catalog &catalog, SchemaCatalogEntry &schema,
 	this->tags = info.tags;
 	this->permissions = info.permissions;
 	const bool postgres = catalog.Compatibility() == SqlCompatibility::POSTGRES;
+	if (domain_info) {
+		auto &oids = catalog.GetDatabase().GetDatabaseManager();
+		for (auto &constraint : domain_info->constraints) {
+			if (constraint.oid) {
+				oids.ClaimOid(constraint.oid);
+			} else if (postgres && !internal) {
+				constraint.oid = oids.NextOid();
+			}
+		}
+	}
 	if (postgres && !internal && user_type.id() == LogicalTypeId::ENUM && !user_type.HasAlias()) {
 		user_type = user_type.WithAlias(name.GetIdentifierName());
 	}
@@ -106,6 +117,7 @@ unique_ptr<CatalogEntry> TypeCatalogEntry::AlterEntry(ClientContext &context, Al
 	}
 	auto result = Copy(context);
 	auto &result_domain_info = result->Cast<TypeCatalogEntry>().domain_info;
+	auto &oids = context.db->GetDatabaseManager();
 	switch (alter.alter_domain_type) {
 	case AlterDomainType::SET_DEFAULT:
 		result_domain_info->default_value = alter.default_value->Copy();
@@ -125,6 +137,11 @@ unique_ptr<CatalogEntry> TypeCatalogEntry::AlterEntry(ClientContext &context, Al
 			alter.constraint.name =
 			    ChooseConstraintName(name.GetIdentifierName(), constraints, ConstraintType::NOT_NULL);
 		}
+		if (!alter.constraint.oid) {
+			alter.constraint.oid = oids.NextOid();
+		} else {
+			oids.ClaimOid(alter.constraint.oid);
+		}
 		constraints.push_back(alter.constraint.Copy());
 		break;
 	}
@@ -139,6 +156,11 @@ unique_ptr<CatalogEntry> TypeCatalogEntry::AlterEntry(ClientContext &context, Al
 		} else if (std::any_of(constraints.begin(), constraints.end(), HasConstraintName(alter.constraint.name))) {
 			throw CatalogException("constraint \"%s\" for domain \"%s\" already exists", alter.constraint.name,
 			                       name.GetIdentifierName());
+		}
+		if (!alter.constraint.oid) {
+			alter.constraint.oid = oids.NextOid();
+		} else {
+			oids.ClaimOid(alter.constraint.oid);
 		}
 		constraints.push_back(alter.constraint.Copy());
 		break;
@@ -209,6 +231,24 @@ string TypeCatalogEntry::ToSQL() const {
 	ss << user_type_copy.ToString();
 	ss << ";";
 	return ss.str();
+}
+
+vector<idx_t> TypeCatalogEntry::GetSubObjectOids() const {
+	if (!domain_info) {
+		return {};
+	}
+	const auto &constraints = domain_info->constraints;
+	if (constraints.empty()) {
+		return {};
+	}
+	vector<idx_t> constraint_oids;
+	constraint_oids.reserve(constraints.size());
+	for (const auto &constraint : constraints) {
+		if (constraint.oid != 0) {
+			constraint_oids.push_back(constraint.oid);
+		}
+	}
+	return constraint_oids;
 }
 
 static optional_ptr<TypeCatalogEntry> FindDomain(ClientContext &context, Catalog &catalog, idx_t oid) {

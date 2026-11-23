@@ -46,5 +46,6 @@ public:
 	string ToSQL() const override;
 
 	static optional_ptr<TypeCatalogEntry> TryGetDomain(ClientContext &context, const LogicalType &type);
+	vector<idx_t> GetSubObjectOids() const;
 };
 } // namespace duckdb

@@ -14,6 +14,7 @@ struct DomainConstraint {
 	unique_ptr<ParsedExpression> expression;
 	//! False after ADD ... NOT VALID until VALIDATE CONSTRAINT
 	bool validated = true;
+	idx_t oid = 0;
 
 	DomainConstraint Copy() const;
 	void Serialize(Serializer &serializer) const;

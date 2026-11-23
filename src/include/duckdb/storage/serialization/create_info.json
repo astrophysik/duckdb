@@ -405,6 +405,12 @@
         "name": "validated",
         "type": "bool",
         "default": "true"
+      },
+      {
+        "id": 104,
+        "name": "oid",
+        "type": "idx_t",
+        "default": "0"
       }
     ]
   },
