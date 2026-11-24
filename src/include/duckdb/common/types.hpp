@@ -458,6 +458,8 @@ struct LogicalType {
 	DUCKDB_API optional_ptr<const ExtensionTypeInfo> GetExtensionInfo() const;
 	//! Returns a copy of this type with "info" as its extension info - never modifies types that share our type info
 	DUCKDB_API LogicalType WithExtensionInfo(unique_ptr<ExtensionTypeInfo> info) const;
+	DUCKDB_API LogicalType WithoutDomain() const;
+	DUCKDB_API LogicalType StripDomains() const;
 
 	//! Returns the maximum logical type when combining the two types - or throws an exception if combining is not
 	//! possible

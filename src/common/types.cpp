@@ -1125,6 +1125,16 @@ static bool TryCombineViaImplicitCast(LogicalTypeResolver &logical_type_resolver
 
 static bool TryGetMaxLogicalTypeInternal(LogicalTypeResolver &logical_type_resolver, const LogicalType &left,
                                          const LogicalType &right, LogicalType &result) {
+	// As in PostgreSQL, only identical types keep a domain: any other combination, NULL and untyped
+	// literals included, combines over the base type of the domain.
+	if (left != right) {
+		const bool left_domain = ExtensionTypeInfo::IsDomain(left.GetExtensionInfo());
+		const bool right_domain = ExtensionTypeInfo::IsDomain(right.GetExtensionInfo());
+		if (left_domain || right_domain) {
+			return logical_type_resolver.Operation(left_domain ? left.WithoutDomain() : left,
+			                                       right_domain ? right.WithoutDomain() : right, result);
+		}
+	}
 	auto &optional_context = logical_type_resolver.context;
 	// with a context, check all combine rules, including ones registered by extensions
 	// without one, check only the built-in rules
@@ -1531,6 +1541,80 @@ LogicalType LogicalType::WithExtensionInfo(unique_ptr<ExtensionTypeInfo> info) c
 	auto new_info = CopyTypeInfo(type_info_.get());
 	new_info->extension_info = std::move(info);
 	return LogicalType(id(), std::move(new_info));
+}
+
+LogicalType LogicalType::WithoutDomain() const {
+	D_ASSERT(ExtensionTypeInfo::IsDomain(GetExtensionInfo()));
+	auto info = make_uniq<ExtensionTypeInfo>(*GetExtensionInfo());
+	auto &properties = info->properties;
+	properties.erase(ExtensionTypeInfo::DOMAIN_PROPERTY);
+	auto base_oid = properties.find(ExtensionTypeInfo::BASE_OID_PROPERTY);
+	if (base_oid != properties.end()) {
+		auto oid = base_oid->second;
+		properties.erase(base_oid);
+		properties[ExtensionTypeInfo::CATALOG_OID_PROPERTY] = std::move(oid);
+	} else {
+		properties.erase(ExtensionTypeInfo::CATALOG_OID_PROPERTY);
+	}
+	if (properties.empty() && info->modifiers.empty()) {
+		return WithExtensionInfo(nullptr);
+	}
+	return WithExtensionInfo(std::move(info));
+}
+
+static LogicalType StripNestedDomains(const LogicalType &type) {
+	if (!type.HasParameters()) {
+		return type;
+	}
+	LogicalType result;
+	switch (type.id()) {
+	case LogicalTypeId::STRUCT:
+	case LogicalTypeId::TUPLE: {
+		auto children = StructType::GetChildTypes(type);
+		for (auto &child : children) {
+			child.second = child.second.StripDomains();
+		}
+		result = type.id() == LogicalTypeId::STRUCT ? LogicalType::STRUCT(std::move(children))
+		                                            : LogicalType::TUPLE(std::move(children));
+		break;
+	}
+	case LogicalTypeId::UNION: {
+		auto members = UnionType::CopyMemberTypes(type);
+		for (auto &member : members) {
+			member.second = member.second.StripDomains();
+		}
+		result = LogicalType::UNION(std::move(members));
+		break;
+	}
+	case LogicalTypeId::LIST:
+		result = LogicalType::LIST(ListType::GetChildType(type).StripDomains());
+		break;
+	case LogicalTypeId::ARRAY:
+		result = LogicalType::ARRAY(ArrayType::GetChildType(type).StripDomains(), ArrayType::GetSize(type));
+		break;
+	case LogicalTypeId::MAP:
+		result = LogicalType::MAP(MapType::KeyType(type).StripDomains(), MapType::ValueType(type).StripDomains());
+		break;
+	default:
+		return type;
+	}
+	if (type.HasAlias()) {
+		result = result.WithAlias(type.GetAlias());
+	}
+	if (type.HasExtensionInfo()) {
+		result = result.WithExtensionInfo(make_uniq<ExtensionTypeInfo>(*type.GetExtensionInfo()));
+	}
+	return result;
+}
+
+LogicalType LogicalType::StripDomains() const {
+	if (!TypeVisitor::Contains(*this, [](const LogicalType &element) {
+		    return ExtensionTypeInfo::IsDomain(element.GetExtensionInfo());
+	    })) {
+		return *this;
+	}
+	auto result = StripNestedDomains(*this);
+	return ExtensionTypeInfo::IsDomain(result.GetExtensionInfo()) ? result.WithoutDomain() : result;
 }
 
 //===--------------------------------------------------------------------===//

@@ -71,9 +71,11 @@ static bool SwitchVarcharComparison(const LogicalType &type) {
 	}
 }
 
-bool BoundComparisonExpression::TryBindComparison(ClientContext &context, const LogicalType &left_type,
-                                                  const LogicalType &right_type, LogicalType &result_type,
+bool BoundComparisonExpression::TryBindComparison(ClientContext &context, const LogicalType &left_input,
+                                                  const LogicalType &right_input, LogicalType &result_type,
                                                   ExpressionType comparison_type) {
+	const auto left_type = left_input.StripDomains();
+	const auto right_type = right_input.StripDomains();
 	LogicalType res;
 	bool is_equality;
 	switch (comparison_type) {
