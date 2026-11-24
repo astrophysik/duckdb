@@ -78,7 +78,6 @@ TypeCatalogEntry::TypeCatalogEntry(Catalog &catalog, SchemaCatalogEntry &schema,
 			}
 			properties[ExtensionTypeInfo::DOMAIN_PROPERTY] = Value::BOOLEAN(true);
 		} else {
-			// TODO: think about aliasing CREATE TYPE x AS d
 			properties.erase(ExtensionTypeInfo::DOMAIN_PROPERTY);
 			properties.erase(ExtensionTypeInfo::BASE_OID_PROPERTY);
 		}

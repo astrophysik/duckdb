@@ -1304,6 +1304,11 @@ BoundStatement Binder::Bind(CreateStatement &stmt) {
 			SetCatalogLookupCallback(dependency_callback);
 			// Bind the underlying type
 			BindLogicalType(create_type_info.type);
+			if (!create_type_info.domain_info &&
+			    ExtensionTypeInfo::IsDomain(create_type_info.type.GetExtensionInfo())) {
+				throw BinderException("type %s cannot be defined as a domain, use CREATE DOMAIN instead",
+				                      create_type_info.GetTypeName().GetIdentifierName());
+			}
 			if (create_type_info.domain_info) {
 				auto &domain_info = *create_type_info.domain_info;
 				auto domain_binder = CreateBinderWithSearchPath(schema.ParentCatalog().GetName(), schema.name);
