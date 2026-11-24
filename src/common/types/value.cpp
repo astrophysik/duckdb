@@ -1436,69 +1436,99 @@ uintptr_t Value::GetPointer() const {
 }
 
 Value Value::Numeric(const LogicalType &type, int64_t value) {
+	Value result;
 	switch (type.id()) {
 	case LogicalTypeId::BOOLEAN:
 		D_ASSERT(value == 0 || value == 1);
-		return Value::BOOLEAN(value ? true : false);
+		result = Value::BOOLEAN(value ? true : false);
+		break;
 	case LogicalTypeId::TINYINT:
 		D_ASSERT(value >= NumericLimits<int8_t>::Minimum() && value <= NumericLimits<int8_t>::Maximum());
-		return Value::TINYINT((int8_t)value);
+		result = Value::TINYINT((int8_t)value);
+		break;
 	case LogicalTypeId::SMALLINT:
 		D_ASSERT(value >= NumericLimits<int16_t>::Minimum() && value <= NumericLimits<int16_t>::Maximum());
-		return Value::SMALLINT((int16_t)value);
+		result = Value::SMALLINT((int16_t)value);
+		break;
 	case LogicalTypeId::INTEGER:
 		D_ASSERT(value >= NumericLimits<int32_t>::Minimum() && value <= NumericLimits<int32_t>::Maximum());
-		return Value::INTEGER((int32_t)value);
+		result = Value::INTEGER((int32_t)value);
+		break;
 	case LogicalTypeId::BIGINT:
-		return Value::BIGINT(value);
+		result = Value::BIGINT(value);
+		break;
 	case LogicalTypeId::UTINYINT:
 		D_ASSERT(value >= NumericLimits<uint8_t>::Minimum() && value <= NumericLimits<uint8_t>::Maximum());
-		return Value::UTINYINT((uint8_t)value);
+		result = Value::UTINYINT((uint8_t)value);
+		break;
 	case LogicalTypeId::USMALLINT:
 		D_ASSERT(value >= NumericLimits<uint16_t>::Minimum() && value <= NumericLimits<uint16_t>::Maximum());
-		return Value::USMALLINT((uint16_t)value);
+		result = Value::USMALLINT((uint16_t)value);
+		break;
 	case LogicalTypeId::UINTEGER:
 		D_ASSERT(value >= NumericLimits<uint32_t>::Minimum() && value <= NumericLimits<uint32_t>::Maximum());
-		return Value::UINTEGER((uint32_t)value);
+		result = Value::UINTEGER((uint32_t)value);
+		break;
 	case LogicalTypeId::UBIGINT:
 		D_ASSERT(value >= 0);
-		return Value::UBIGINT(NumericCast<uint64_t>(value));
+		result = Value::UBIGINT(NumericCast<uint64_t>(value));
+		break;
 	case LogicalTypeId::HUGEINT:
-		return Value::HUGEINT(value);
+		result = Value::HUGEINT(value);
+		break;
 	case LogicalTypeId::UHUGEINT:
-		return Value::UHUGEINT(NumericCast<uint64_t>(value));
+		result = Value::UHUGEINT(NumericCast<uint64_t>(value));
+		break;
 	case LogicalTypeId::DECIMAL:
-		return Value::DECIMAL(value, DecimalType::GetWidth(type), DecimalType::GetScale(type));
+		result = Value::DECIMAL(value, DecimalType::GetWidth(type), DecimalType::GetScale(type));
+		break;
 	case LogicalTypeId::FLOAT:
-		return Value((float)value);
+		result = Value((float)value);
+		break;
 	case LogicalTypeId::DOUBLE:
-		return Value((double)value);
+		result = Value((double)value);
+		break;
 	case LogicalTypeId::POINTER:
-		return Value::POINTER(NumericCast<uintptr_t>(value));
+		result = Value::POINTER(NumericCast<uintptr_t>(value));
+		break;
 	case LogicalTypeId::DATE:
 		D_ASSERT(value >= NumericLimits<int32_t>::Minimum() && value <= NumericLimits<int32_t>::Maximum());
-		return Value::DATE(date_t(NumericCast<int32_t>(value)));
+		result = Value::DATE(date_t(NumericCast<int32_t>(value)));
+		break;
 	case LogicalTypeId::TIME:
-		return Value::TIME(dtime_t(value));
+		result = Value::TIME(dtime_t(value));
+		break;
 	case LogicalTypeId::TIME_NS:
-		return Value::TIME_NS(dtime_ns_t(value));
+		result = Value::TIME_NS(dtime_ns_t(value));
+		break;
 	case LogicalTypeId::TIMESTAMP:
-		return Value::TIMESTAMP(timestamp_t(value));
+		result = Value::TIMESTAMP(timestamp_t(value));
+		break;
 	case LogicalTypeId::TIMESTAMP_SEC:
-		return Value::TIMESTAMPSEC(timestamp_sec_t(value));
+		result = Value::TIMESTAMPSEC(timestamp_sec_t(value));
+		break;
 	case LogicalTypeId::TIMESTAMP_MS:
-		return Value::TIMESTAMPMS(timestamp_ms_t(value));
+		result = Value::TIMESTAMPMS(timestamp_ms_t(value));
+		break;
 	case LogicalTypeId::TIMESTAMP_NS:
-		return Value::TIMESTAMPNS(timestamp_ns_t(value));
+		result = Value::TIMESTAMPNS(timestamp_ns_t(value));
+		break;
 	case LogicalTypeId::TIMESTAMP_TZ:
-		return Value::TIMESTAMPTZ(timestamp_tz_t(value));
+		result = Value::TIMESTAMPTZ(timestamp_tz_t(value));
+		break;
 	case LogicalTypeId::TIMESTAMP_TZ_NS:
-		return Value::TIMESTAMPTZNS(timestamp_tz_ns_t(value));
+		result = Value::TIMESTAMPTZNS(timestamp_tz_ns_t(value));
+		break;
 	case LogicalTypeId::ENUM:
-		return Value::ENUM(NumericCast<uint64_t>(value), type);
+		result = Value::ENUM(NumericCast<uint64_t>(value), type);
+		break;
 	default:
 		throw InvalidTypeException(type, "Numeric requires numeric type");
 	}
+	if (type.HasAlias() || type.HasExtensionInfo()) {
+		return result.WithType(type);
+	}
+	return result;
 }
 
 Value Value::Numeric(const LogicalType &type, hugeint_t value) {
@@ -1506,14 +1536,21 @@ Value Value::Numeric(const LogicalType &type, hugeint_t value) {
 	// perform a throwing cast to verify that the type fits
 	Value::HUGEINT(value).DefaultCastAs(type);
 #endif
+	Value result;
 	switch (type.id()) {
 	case LogicalTypeId::HUGEINT:
-		return Value::HUGEINT(value);
+		result = Value::HUGEINT(value);
+		break;
 	case LogicalTypeId::UBIGINT:
-		return Value::UBIGINT(Hugeint::Cast<uint64_t>(value));
+		result = Value::UBIGINT(Hugeint::Cast<uint64_t>(value));
+		break;
 	default:
 		return Value::Numeric(type, Hugeint::Cast<int64_t>(value));
 	}
+	if (type.HasAlias() || type.HasExtensionInfo()) {
+		return result.WithType(type);
+	}
+	return result;
 }
 
 Value Value::Numeric(const LogicalType &type, uhugeint_t value) {
@@ -1521,14 +1558,21 @@ Value Value::Numeric(const LogicalType &type, uhugeint_t value) {
 	// perform a throwing cast to verify that the type fits
 	Value::UHUGEINT(value).DefaultCastAs(type);
 #endif
+	Value result;
 	switch (type.id()) {
 	case LogicalTypeId::UHUGEINT:
-		return Value::UHUGEINT(value);
+		result = Value::UHUGEINT(value);
+		break;
 	case LogicalTypeId::UBIGINT:
-		return Value::UBIGINT(Uhugeint::Cast<uint64_t>(value));
+		result = Value::UBIGINT(Uhugeint::Cast<uint64_t>(value));
+		break;
 	default:
 		return Value::Numeric(type, Uhugeint::Cast<int64_t>(value));
 	}
+	if (type.HasAlias() || type.HasExtensionInfo()) {
+		return result.WithType(type);
+	}
+	return result;
 }
 
 //===--------------------------------------------------------------------===//
