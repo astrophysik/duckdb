@@ -31,11 +31,8 @@ static idx_t TypeOid(Catalog &catalog, const CreateTypeInfo &info) {
 
 TypeCatalogEntry::TypeCatalogEntry(Catalog &catalog, SchemaCatalogEntry &schema, CreateTypeInfo &info)
     : StandardEntry(CatalogType::TYPE_ENTRY, schema, catalog, info.GetTypeName(), TypeOid(catalog, info)),
-      // TODO: maybe info.type is enough here
-      user_type(info.domain_info && info.domain_info->base_type.id() != LogicalTypeId::INVALID
-                    ? info.domain_info->base_type
-                    : info.type),
-      constructors(info.constructors), domain_info(info.domain_info ? info.domain_info->Copy() : nullptr) {
+      user_type(info.type), constructors(info.constructors),
+      domain_info(info.domain_info ? info.domain_info->Copy() : nullptr) {
 	if (constructors.functions.empty()) {
 		// a type without constructors takes no modifiers and always resolves to its own type
 		constructors.AddFunction(TypeConstructor::Identity(name));
