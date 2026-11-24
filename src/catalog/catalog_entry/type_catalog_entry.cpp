@@ -9,6 +9,11 @@
 #include "duckdb/parser/keyword_helper.hpp"
 #include "duckdb/parser/parsed_data/alter_domain_info.hpp"
 #include "duckdb/parser/constraints/not_null_constraint.hpp"
+#include "duckdb/planner/binder.hpp"
+#include "duckdb/catalog/dependency_manager.hpp"
+#include "duckdb/planner/expression_binder/constant_binder.hpp"
+#include "duckdb/planner/expression_binder/check_binder.hpp"
+#include "duckdb/parser/constraints/check_constraint.hpp"
 #include "duckdb/main/database.hpp"
 #include <algorithm>
 #include <sstream>
@@ -204,6 +209,48 @@ unique_ptr<CatalogEntry> TypeCatalogEntry::AlterEntry(ClientContext &context, Al
 	case AlterDomainType::RENAME:
 		D_ASSERT(false); // already processed before switch
 	}
+
+	if (info.bind_mode != AlterBindMode::SKIP_BINDING) {
+		auto &dependencies = result->Cast<TypeCatalogEntry>().dependencies;
+		dependencies = LogicalDependencyList();
+		if (const auto &base_type = domain_info->base_type; base_type.HasExtensionInfo()) {
+			const auto &properties = base_type.GetExtensionInfo()->properties;
+			if (auto oid_it = properties.find(ExtensionTypeInfo::CATALOG_OID_PROPERTY); oid_it != properties.end()) {
+				auto base_oid = oid_it->second.GetValue<idx_t>();
+				auto base_entry = catalog.LookupOid(catalog.GetCatalogTransaction(context), base_oid);
+				D_ASSERT(base_entry);
+				dependencies.AddDependency(*base_entry);
+			}
+		}
+		auto binder = Binder::CreateBinder(context);
+		binder->SetSearchPath(catalog, ParentSchemaName(catalog.GetCatalogTransaction(context)));
+		binder->SetCatalogLookupCallback([&](CatalogEntry &entry) {
+			if (DependencyManager::CanDepend(catalog, entry.ParentCatalog())) {
+				dependencies.AddDependency(entry);
+			}
+		});
+		if (const auto &default_value = result_domain_info->default_value; default_value) {
+			auto copy = default_value->Copy();
+			ConstantBinder default_binder(*binder, context, "DEFAULT value");
+			default_binder.target_type = result_domain_info->base_type;
+			default_binder.Bind(copy);
+		}
+		if (!result_domain_info->constraints.empty()) {
+			ColumnList columns;
+			columns.AddColumn(ColumnDefinition(Identifier("value"), result_domain_info->base_type));
+			physical_index_set_t bound_columns;
+			CheckBinder check_binder(*binder, context, name, columns, bound_columns);
+			check_binder.target_type = LogicalType();
+			for (const auto &constraint : result_domain_info->constraints) {
+				if (constraint->type != ConstraintType::CHECK) {
+					continue;
+				}
+				auto copy = constraint->Cast<CheckConstraint>().expression->Copy();
+				check_binder.Bind(copy);
+			}
+		}
+	}
+
 	return result;
 }
 
