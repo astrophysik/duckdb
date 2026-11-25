@@ -1338,6 +1338,7 @@ BoundStatement Binder::Bind(CreateStatement &stmt) {
 					}
 				}
 				if (domain_info.default_value) {
+					domain_binder->QualifyUserFunctions(schema.ParentCatalog(), *domain_info.default_value);
 					auto default_copy = domain_info.default_value->Copy();
 					if (default_copy->HasParameter()) {
 						throw BinderException("DEFAULT values cannot contain parameters");
@@ -1372,6 +1373,8 @@ BoundStatement Binder::Bind(CreateStatement &stmt) {
 							D_ASSERT(constraint->type == ConstraintType::NOT_NULL);
 							continue;
 						}
+						domain_binder->QualifyUserFunctions(schema.ParentCatalog(),
+						                                    *constraint->Cast<CheckConstraint>().expression);
 						auto constraint_copy = constraint->Cast<CheckConstraint>().expression->Copy();
 						if (constraint_copy->HasParameter()) {
 							throw BinderException("CHECK expression cannot contain parameters");

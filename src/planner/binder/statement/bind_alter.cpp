@@ -346,6 +346,7 @@ BoundStatement Binder::Bind(AlterStatement &stmt) {
 		auto domain_binder =
 		    CreateBinderWithSearchPath(type_entry.ParentCatalog().GetName(), type_entry.ParentSchemaName());
 		if (alter.alter_domain_type == AlterDomainType::SET_DEFAULT) {
+			domain_binder->QualifyUserFunctions(entry->ParentCatalog(), *alter.default_value);
 			auto default_copy = alter.default_value->Copy();
 			if (default_copy->HasParameter()) {
 				throw BinderException("DEFAULT values cannot contain parameters");
@@ -358,7 +359,9 @@ BoundStatement Binder::Bind(AlterStatement &stmt) {
 			}
 		} else if (alter.alter_domain_type == AlterDomainType::ADD_CONSTRAINT &&
 		           alter.constraint->type == ConstraintType::CHECK) {
-			auto check_copy = alter.constraint->Cast<CheckConstraint>().expression->Copy();
+			const auto &check_expression = alter.constraint->Cast<CheckConstraint>().expression;
+			domain_binder->QualifyUserFunctions(entry->ParentCatalog(), *check_expression);
+			auto check_copy = check_expression->Copy();
 			if (check_copy->HasParameter()) {
 				throw BinderException("CHECK expression cannot contain parameters");
 			}

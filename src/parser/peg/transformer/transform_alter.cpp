@@ -162,7 +162,7 @@ CatalogType PEGTransformerFactory::TransformSetSchemaDictionary(PEGTransformer &
 }
 
 CatalogType PEGTransformerFactory::TransformSetSchemaDomain(PEGTransformer &transformer) {
-	throw NotImplementedException("ALTER DOMAIN ... SET SCHEMA is not supported");
+	return CatalogType::TYPE_ENTRY;
 }
 
 unique_ptr<AlterInfo> PEGTransformerFactory::TransformAlterDomainStmt(PEGTransformer &transformer,
