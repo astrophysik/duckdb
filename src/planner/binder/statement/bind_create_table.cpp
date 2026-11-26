@@ -658,6 +658,11 @@ void Binder::BindGeneratedColumns(BoundCreateTableInfo &info) {
 			BindLogicalType(col.TypeMutable());
 			table_binding->SetColumnType(i.index, col.Type());
 		}
+		if (col.Category() == TableColumnType::GENERATED_VIRTUAL &&
+		    TypeVisitor::Contains(col.Type(), [](const LogicalType &type) { return type.IsDomain(); })) {
+			throw NotImplementedException("virtual generated column \"%s\" cannot have a domain type",
+			                              col.Name().GetIdentifierName());
+		}
 
 		bound_indices.insert(i);
 	}
