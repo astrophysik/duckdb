@@ -129,7 +129,7 @@ unique_ptr<CatalogEntry> TypeCatalogEntry::AlterEntry(ClientContext &context, Al
 		break;
 	case AlterDomainType::SET_NOT_NULL: {
 		auto &constraints = result_domain_info->constraints;
-		if (!domain_info->IsNotNull()) {
+		if (domain_info->IsNotNull()) {
 			break;
 		}
 		if (!alter.constraint) {
