@@ -333,15 +333,6 @@ BoundStatement Binder::Bind(AlterStatement &stmt) {
 			throw BinderException("\"%s\" is not a domain", type_entry.name.GetIdentifierName());
 		}
 		auto &alter = stmt.info->Cast<AlterDomainInfo>();
-		if (alter.alter_domain_type == AlterDomainType::ADD_CONSTRAINT && alter.constraint->validated) {
-			throw NotImplementedException("ALTER DOMAIN ... ADD CONSTRAINT without NOT VALID is not supported");
-		}
-		if (alter.alter_domain_type == AlterDomainType::SET_NOT_NULL) {
-			throw NotImplementedException("ALTER DOMAIN ... SET NOT NULL is not supported");
-		}
-		if (alter.alter_domain_type == AlterDomainType::VALIDATE_CONSTRAINT) {
-			throw NotImplementedException("ALTER DOMAIN ... VALIDATE CONSTRAINT is not supported");
-		}
 		const auto &base_type = type_entry.domain_info->base_type;
 		auto domain_binder =
 		    CreateBinderWithSearchPath(type_entry.ParentCatalog().GetName(), type_entry.ParentSchemaName());
