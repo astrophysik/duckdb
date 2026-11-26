@@ -694,7 +694,9 @@ BoundStatement Binder::BindCopyFrom(CopyStatement &stmt, const CopyFunction &fun
 	vector<LogicalType> expected_types;
 	vector<Identifier> expected_names;
 	BindInsertColumnList(table, stmt.info->select_list, false, named_column_map, expected_types, column_index_map);
-	// TODO: read domain columns as their base types so that the insert casts them and checks the domain constraints
+	for (auto &expected_type : expected_types) {
+		expected_type = expected_type.StripDomains();
+	}
 	expected_names.reserve(named_column_map.size());
 	for (auto &column_index : named_column_map) {
 		expected_names.push_back(table.GetColumn(column_index).Name());
