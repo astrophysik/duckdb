@@ -40,7 +40,7 @@ static void SetCastNullHandling(FUNC &function, const LogicalType &target_type) 
 //! between the types at all, in which case the cast throws for every non-NULL value
 static bool BoundCastCanThrow(const BoundCastInfo &bound_cast, const LogicalType &source_type,
                               const LogicalType &target_type, bool try_cast) {
-	if (bound_cast.checks_domain) {
+	if (bound_cast.has_value_checks) {
 		return !try_cast;
 	}
 	if (bound_cast.IsNopCast()) {
@@ -212,7 +212,7 @@ bool BoundCastExpression::IsCast(const Expression &expr) {
 		return false;
 	}
 	auto &cast = expr.Cast<BoundFunctionExpression>();
-	return !cast.BindInfo() || !GetBoundCast(cast).checks_domain;
+	return !cast.BindInfo() || !GetBoundCast(cast).has_value_checks;
 }
 
 const Expression &BoundCastExpression::Child(const BoundFunctionExpression &cast_expr) {

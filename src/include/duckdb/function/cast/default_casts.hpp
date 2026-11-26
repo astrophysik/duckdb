@@ -140,7 +140,7 @@ struct BoundCastInfo {
 	    init_cast_local_state_t init_local_state = nullptr);
 
 	bucket_rewrite_t bucket_rewrite = nullptr;
-	bool checks_domain = false;
+	bool has_value_checks = false;
 
 	bool Cast(Vector &source, Vector &result, idx_t count, CastParameters &parameters) const {
 		auto all_ok = function(source, result, count, parameters);
@@ -170,7 +170,8 @@ public:
 	//! It throws for any non-NULL value, regardless of the types involved
 	bool IsNullCast() const;
 	bool Equals(const BoundCastInfo &other) const {
-		return function == other.function && statistics == other.statistics && checks_domain == other.checks_domain;
+		return function == other.function && statistics == other.statistics &&
+		       has_value_checks == other.has_value_checks;
 	}
 	bool HasStatisticsCallback() const {
 		return statistics;
