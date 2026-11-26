@@ -1543,8 +1543,14 @@ LogicalType LogicalType::WithExtensionInfo(unique_ptr<ExtensionTypeInfo> info) c
 	return LogicalType(id(), std::move(new_info));
 }
 
+bool LogicalType::IsDomain() const {
+	return ExtensionTypeInfo::IsDomain(GetExtensionInfo());
+}
+
 LogicalType LogicalType::WithoutDomain() const {
-	D_ASSERT(ExtensionTypeInfo::IsDomain(GetExtensionInfo()));
+	if (!IsDomain()) {
+		return *this;
+	}
 	auto info = make_uniq<ExtensionTypeInfo>(*GetExtensionInfo());
 	auto &properties = info->properties;
 	properties.erase(ExtensionTypeInfo::DOMAIN_PROPERTY);
