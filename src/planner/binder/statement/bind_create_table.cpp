@@ -691,6 +691,7 @@ void Binder::BindDefaultValues(const ColumnList &columns, vector<unique_ptr<Expr
 			auto default_copy = domain_entry->domain_info->default_value->Copy();
 			auto domain_binder =
 			    CreateBinderWithSearchPath(domain_entry->ParentCatalog().GetName(), domain_entry->ParentSchemaName());
+			domain_binder->SetCatalogLookupCallback(nullptr);
 			ConstantBinder default_value_binder(*domain_binder, context, "DEFAULT value");
 			default_value_binder.target_type = column.Type();
 			bound_default = default_value_binder.Bind(default_copy);
