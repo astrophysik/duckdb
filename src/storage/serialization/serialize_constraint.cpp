@@ -17,12 +17,16 @@ void Constraint::Serialize(Serializer &serializer) const {
 	if (serializer.ShouldSerialize(StorageVersion::SDB_V1)) {
 		serializer.WritePropertyWithDefault<idx_t>(16485, "oid", oid);
 	}
+	if (serializer.ShouldSerialize(StorageVersion::SDB_V1)) {
+		serializer.WritePropertyWithDefault<bool>(16486, "validated", validated, true);
+	}
 }
 
 unique_ptr<Constraint> Constraint::Deserialize(Deserializer &deserializer) {
 	auto type = deserializer.ReadProperty<ConstraintType>(100, "type");
 	auto constraint_name = deserializer.ReadPropertyWithDefault<string>(16484, "constraint_name");
 	auto oid = deserializer.ReadPropertyWithDefault<idx_t>(16485, "oid");
+	auto validated = deserializer.ReadPropertyWithExplicitDefault<bool>(16486, "validated", true);
 	unique_ptr<Constraint> result;
 	switch (type) {
 	case ConstraintType::CHECK:
@@ -42,6 +46,7 @@ unique_ptr<Constraint> Constraint::Deserialize(Deserializer &deserializer) {
 	}
 	result->constraint_name = std::move(constraint_name);
 	result->oid = oid;
+	result->validated = validated;
 	return result;
 }
 
