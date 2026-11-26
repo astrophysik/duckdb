@@ -1626,6 +1626,12 @@ FunctionBinder::ResolveFunction(shared_ptr<const ScalarFunction> function_p, vec
 	// check if we need to add casts to the children
 	CastToFunctionArguments(bound_function, arguments);
 
+	// A function does not pass the domain of an argument on to its result: unless the signature declares a domain,
+	// the result takes the base type, so the domain cast checks a computed value wherever it becomes the domain again
+	if (!function.GetReturnType().IsDomain()) {
+		bound_function.SetReturnType(bound_function.GetReturnType().WithoutDomain());
+	}
+
 	return {std::move(bound_function), std::move(bind_info)};
 }
 
@@ -1708,6 +1714,12 @@ FunctionBinder::ResolveFunction(shared_ptr<const AggregateFunction> function_p,
 
 	// check if we need to add casts to the children
 	CastToFunctionArguments(bound_function, children);
+
+	// A function does not pass the domain of an argument on to its result: unless the signature declares a domain, the
+	// result takes the base type, so the domain cast checks a computed value wherever it becomes the domain again;
+	if (!function.GetReturnType().IsDomain()) {
+		bound_function.SetReturnType(bound_function.GetReturnType().WithoutDomain());
+	}
 
 	return {std::move(bound_function), std::move(bind_info)};
 }
